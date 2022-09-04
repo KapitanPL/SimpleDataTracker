@@ -9,8 +9,10 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:syncfusion_flutter_datepicker/datepicker.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'src/dataRecord/data.dart';
+import 'src/widgets/key_button.dart';
 
 typedef CallbackFunction = void Function();
 
@@ -34,10 +36,39 @@ const String hiveKeyselectedItem = "selectedItem";
 
 const double dayInMiliseconds = 24 * 60 * 60 * 1000;
 
-void main() {
-  var path = Directory.current.path; //? Or some better
+class LineBarDataMeta extends LineChartBarData {
+  LineBarDataMeta(
+      {super.spots,
+      super.show,
+      super.color,
+      super.gradient,
+      super.barWidth,
+      super.isCurved,
+      super.curveSmoothness,
+      super.preventCurveOverShooting,
+      super.preventCurveOvershootingThreshold,
+      super.isStrokeCapRound,
+      super.isStrokeJoinRound,
+      super.belowBarData,
+      super.aboveBarData,
+      super.dotData,
+      super.showingIndicators,
+      super.dashArray,
+      super.shadow,
+      super.isStepLineChart,
+      super.lineChartStepData,
+      required this.displayed,
+      required this.dataKey});
+  bool displayed;
+  String dataKey;
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.leanBack);
+  var directory = await getApplicationSupportDirectory(); //? Or some better
   Hive
-    ..init(path)
+    ..init(directory.path)
     ..registerAdapter(DataAdapter())
     ..registerAdapter(DataContainerAdapter())
     ..registerAdapter(ColorAdapter());
@@ -64,10 +95,10 @@ class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MyHomePage> createState() => DataTrackerState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class DataTrackerState extends State<MyHomePage> {
   Map<String, DataContainer> data = {};
   final _yTextFieldController = TextEditingController();
   final _textFieldController = TextEditingController();
@@ -75,25 +106,28 @@ class _MyHomePageState extends State<MyHomePage> {
   final _colorController = CircleColorPickerController(
     initialColor: Colors.blue,
   );
-  List<String> _selectedKeys = [];
+  List<String> selectedKeys = [];
   String _valueEnterKey = "";
   String _timeValueText = "";
 
-  List<LineChartBarData> lineChartBarDataCache = [];
+  Map<String, LineBarDataMeta> lineChartBarDataCache = {};
   bool reloadDataCache = false;
   bool dataLoaded = false;
 
-  _MyHomePageState() {
+  DataTrackerState() {
     loadSettings();
     loadData().then(
       (value) {
         setState(() {
           data = value;
           reloadDataCache = true;
-          dataLoaded = true;
         });
       },
-    );
+    ).whenComplete(() => setState(
+          () {
+            dataLoaded = true;
+          },
+        ));
   }
 
   void _addNewRecord() {
@@ -122,7 +156,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> loadSettings() async {
     var box = await Hive.openBox('settings');
     if (box.keys.contains(hiveKeyselectedItem)) {
-      _selectedKeys = box.get(hiveKeyselectedItem);
+      selectedKeys = box.get(hiveKeyselectedItem);
     }
     box.close();
   }
@@ -163,13 +197,29 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void keyValuePressed(String key) {
     setState(() {
-      if (_selectedKeys.contains(key)) {
-        _selectedKeys.remove(key);
+      if (selectedKeys.contains(key)) {
+        selectedKeys.remove(key);
       } else {
-        _selectedKeys.add(key);
+        selectedKeys.add(key);
       }
       reloadDataCache = true;
-      saveListSettings(hiveKeyselectedItem, _selectedKeys);
+      saveListSettings(hiveKeyselectedItem, selectedKeys);
+    });
+  }
+
+  void updateData(String key, int index, DateTime date, double value) {
+    assert(data.keys.contains(key));
+    assert(data[key]!.data.length > index && index >= 0);
+    setState(() {
+      if (data[key]!.data[index].first == date) {
+        data[key]!.data[index].second = value;
+      } else {
+        data[key]!.data[index].first = date;
+        data[key]!.data[index].second = value;
+        data[key]!.data.sort(((a, b) => a.first.compareTo(b.first)));
+      }
+      reloadDataCache = true;
+      saveData();
     });
   }
 
@@ -201,14 +251,14 @@ class _MyHomePageState extends State<MyHomePage> {
     return result;
   }
 
-  void _deleteKey(key) async {
+  void deleteKey(key) async {
     yesNoQuestion(context, "Delete $key?").then((value) {
       if (value) {
         setState(() {
           data.remove(key);
-          if (_selectedKeys.contains(key)) {
-            _selectedKeys.remove(key);
-            saveListSettings(hiveKeyselectedItem, _selectedKeys);
+          if (selectedKeys.contains(key)) {
+            selectedKeys.remove(key);
+            saveListSettings(hiveKeyselectedItem, selectedKeys);
           }
           reloadDataCache = true;
           saveData();
@@ -217,7 +267,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  void _editKey(key) async {
+  void editKey(key) async {
     _editSeries(defaultValue: data[key]).then((value) {
       if (value != null) {
         setState(() {
@@ -241,84 +291,24 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       if (data.keys.contains(value.name) == false) {
         data[value.name] = value;
-        _selectedKeys.add(value.name);
+        selectedKeys.add(value.name);
         saveData();
       }
     });
-  }
-
-  Color contrastColor(Color color) {
-    if ((color.red * 0.299 + color.green * 0.587 + color.blue * 0.114) > 186) {
-      return Colors.black;
-    }
-    return Colors.white;
-  }
-
-  ElevatedButton createKeyButton(String key) {
-    Color textColor = contrastColor(data[key]!.color);
-    return ElevatedButton(
-        style: ElevatedButton.styleFrom(
-            primary: data[key]!.color,
-            minimumSize: const Size(0, 30),
-            maximumSize: Size(MediaQuery.of(context).size.width - 15, 30),
-            elevation: _selectedKeys.contains(key) ? 10 : 0),
-        onPressed: () => keyValuePressed(key),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(key,
-                style: TextStyle(
-                  color: textColor,
-                  fontWeight: _selectedKeys.contains(key)
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                  fontSize: _selectedKeys.contains(key) ? 20 : 12,
-                )),
-            PopupMenuButton(
-              position: PopupMenuPosition.under,
-              iconSize: 15,
-              itemBuilder: (BuildContext context) => <PopupMenuEntry>[
-                const PopupMenuItem(
-                  value: 0,
-                  child: Text('Edit'),
-                ),
-                const PopupMenuItem(
-                  value: 1,
-                  child: Text('Delete'),
-                ),
-              ],
-              onSelected: (item) {
-                switch (item) {
-                  case 0: // Edit
-                    {
-                      _editKey(key);
-                      break;
-                    }
-                  case 1: //Delete
-                    {
-                      _deleteKey(key);
-                      break;
-                    }
-                }
-              },
-              icon:
-                  Icon(Icons.menu, color: textColor), //dropdown indicator icon
-            )
-          ],
-        ));
   }
 
   @override
   Widget build(BuildContext context) {
     List<Widget> dataLabels = [];
     for (var key in data.keys) {
-      dataLabels.add(createKeyButton(key));
+      dataLabels.add(createKeyButton(key, context, this));
     }
     return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
+            const SizedBox(width: 20),
             Wrap(
               alignment: WrapAlignment.start,
               spacing: 10,
@@ -387,6 +377,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
   LineChartData getLineChartData() {
     return LineChartData(
+      lineTouchData: LineTouchData(
+        touchCallback: (p0, p1) {
+          if (p0 is FlTapDownEvent &&
+              p1 is LineTouchResponse &&
+              p1.lineBarSpots != null) {
+            var data = p1.lineBarSpots!.first;
+            print("touch!: ${p1.lineBarSpots}");
+          }
+        },
+      ),
       gridData: FlGridData(show: true, verticalInterval: dayInMiliseconds),
       lineBarsData: getLineChartBarData(),
       titlesData: FlTitlesData(
@@ -419,25 +419,34 @@ class _MyHomePageState extends State<MyHomePage> {
     if (reloadDataCache) {
       lineChartBarDataCache.clear();
       for (var datasetKey in data.keys) {
-        if (_selectedKeys.contains(datasetKey) == false ||
-            data[datasetKey]!.data.isEmpty) {
-          continue;
-        }
-        lineChartBarDataCache.add(LineChartBarData(
-          color: data[datasetKey]!.color,
-          spots: data[datasetKey]!.data.getSpots(),
-          isCurved: false,
-          isStrokeCapRound: true,
-          barWidth: 3,
-          belowBarData: BarAreaData(
-            show: false,
-          ),
-          dotData: FlDotData(show: true),
-        ));
+        lineChartBarDataCache[datasetKey] = LineBarDataMeta(
+            color: data[datasetKey]!.color,
+            spots: data[datasetKey]!.data.getSpots(),
+            isCurved: false,
+            isStrokeCapRound: true,
+            barWidth: 3,
+            belowBarData: BarAreaData(
+              show: false,
+            ),
+            dotData: FlDotData(show: true),
+            displayed: selectedKeys.contains(datasetKey),
+            dataKey: datasetKey);
       }
       reloadDataCache = false;
     }
-    return lineChartBarDataCache;
+    for (var datasetKey in data.keys) {
+      if (selectedKeys.contains(datasetKey) == false ||
+          data[datasetKey]!.data.isEmpty) {
+        continue;
+      }
+    }
+    List<LineChartBarData> displayed = [];
+    for (var cacheKey in lineChartBarDataCache.keys) {
+      if (lineChartBarDataCache[cacheKey]!.displayed) {
+        displayed.add(lineChartBarDataCache[cacheKey]!);
+      }
+    }
+    return displayed;
   }
 
   String? get _errorKeyText {
@@ -523,7 +532,7 @@ class _MyHomePageState extends State<MyHomePage> {
       ));
     }
     if (!data.keys.contains(_valueEnterKey)) {
-      _valueEnterKey = _selectedKeys.last;
+      _valueEnterKey = selectedKeys.last;
     }
 
     const List<PopupMenuItem> timeKeys = [
@@ -691,7 +700,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             keyboardType: TextInputType.number,
                             inputFormatters: <TextInputFormatter>[
                               FilteringTextInputFormatter.allow(
-                                  RegExp(r'[0-9.]+'))
+                                  RegExp(r'[0-9.-]+'))
                             ],
                             decoration:
                                 const InputDecoration(labelText: "Value"),
@@ -716,7 +725,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         DataDialogReturn(
                             category: _valueEnterKey,
                             data: Data(
-                                first: returnDate, // TODO return real value
+                                first: returnDate,
                                 second:
                                     double.parse(_yTextFieldController.text)))),
               ),
