@@ -25,7 +25,9 @@ ElevatedButton createKeyButton(
           SizedBox(
               width: 50,
               child: TextField(
-                style: TextStyle(color: textColor),
+                style: TextStyle(
+                    color: textColor, backgroundColor: state.data[key]!.color),
+                decoration: null,
                 textAlignVertical: TextAlignVertical.bottom,
                 keyboardType: TextInputType.number,
                 inputFormatters: <TextInputFormatter>[

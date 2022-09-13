@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_circle_color_picker/flutter_circle_color_picker.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:graphic/graphic.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:syncfusion_flutter_datepicker/datepicker.dart';
@@ -16,16 +16,6 @@ import 'src/widgets/key_button.dart';
 
 typedef CallbackFunction = void Function();
 
-extension FlSpotConvertor on List<Data> {
-  List<FlSpot> getSpots() {
-    List<FlSpot> res = [];
-    for (var dt in this) {
-      res.add(FlSpot(dt.first.millisecondsSinceEpoch.toDouble(), dt.second));
-    }
-    return res;
-  }
-}
-
 extension TimeManipulation on DateTime {
   DateTime getMidnight() {
     return DateTime(year, month, day);
@@ -36,32 +26,7 @@ const String hiveKeyselectedItem = "selectedItem";
 
 const double dayInMiliseconds = 24 * 60 * 60 * 1000;
 
-class LineBarDataMeta extends LineChartBarData {
-  LineBarDataMeta(
-      {super.spots,
-      super.show,
-      super.color,
-      super.gradient,
-      super.barWidth,
-      super.isCurved,
-      super.curveSmoothness,
-      super.preventCurveOverShooting,
-      super.preventCurveOvershootingThreshold,
-      super.isStrokeCapRound,
-      super.isStrokeJoinRound,
-      super.belowBarData,
-      super.aboveBarData,
-      super.dotData,
-      super.showingIndicators,
-      super.dashArray,
-      super.shadow,
-      super.isStepLineChart,
-      super.lineChartStepData,
-      required this.displayed,
-      required this.dataKey});
-  bool displayed;
-  String dataKey;
-}
+const double proximityThreshold = 0.01; // ratio of screen size
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -73,6 +38,13 @@ void main() async {
     ..registerAdapter(DataContainerAdapter())
     ..registerAdapter(ColorAdapter());
   runApp(const DataTracker());
+}
+
+class DataCacheEntry {
+  DataCacheEntry(this.time, this.value, this.datakey);
+  DateTime time;
+  double value;
+  String datakey;
 }
 
 class DataTracker extends StatelessWidget {
@@ -110,7 +82,7 @@ class DataTrackerState extends State<MyHomePage> {
   String _valueEnterKey = "";
   String _timeValueText = "";
 
-  Map<String, LineBarDataMeta> lineChartBarDataCache = {};
+  List<DataCacheEntry> dataCache = [];
   bool reloadDataCache = false;
   bool dataLoaded = false;
 
@@ -131,6 +103,9 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   void _addNewRecord() {
+    if (data.keys.isEmpty) {
+      return;
+    }
     _showDataInputDialog().then((value) {
       if (value != null) {
         assert(data.keys.contains(value.category));
@@ -158,19 +133,16 @@ class DataTrackerState extends State<MyHomePage> {
     if (box.keys.contains(hiveKeyselectedItem)) {
       selectedKeys = box.get(hiveKeyselectedItem);
     }
-    box.close();
   }
 
   Future<void> saveSettings(String key, String value) async {
     var box = await Hive.openBox('settings');
     box.put(key, value);
-    box.close();
   }
 
   Future<void> saveListSettings(String key, List<String> value) async {
     var box = await Hive.openBox('settings');
     box.put(key, value);
-    box.close();
   }
 
   Future<Map<String, DataContainer>> loadData() async {
@@ -317,9 +289,8 @@ class DataTrackerState extends State<MyHomePage> {
             SizedBox(
               height: MediaQuery.of(context).size.height - 50,
               width: MediaQuery.of(context).size.width * 0.98,
-              child: (dataLoaded)
-                  ? LineChart(getLineChartData())
-                  : const CircularProgressIndicator(),
+              child:
+                  (dataLoaded) ? getChart() : const CircularProgressIndicator(),
             ),
           ],
         ),
@@ -346,107 +317,103 @@ class DataTrackerState extends State<MyHomePage> {
     );
   }
 
-  Widget bottomTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(
-      color: Colors.blueGrey,
-      fontWeight: FontWeight.bold,
-      fontSize: 18,
-    );
-    var timeLabel = DateTime.fromMillisecondsSinceEpoch(value.floor());
-    var timeValueText =
-        DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(timeLabel);
-    return SideTitleWidget(
-      axisSide: meta.axisSide,
-      space: 15,
-      child: Text(timeValueText, style: style),
-    );
+  Widget getChart() {
+    updateDataCache();
+    var colorList = getColorList();
+    return isChartEmpty()
+        ? const Text("No data to display")
+        : Chart(
+            data: dataCache,
+            variables: {
+              'date': Variable(
+                accessor: (dynamic datum) => (datum as DataCacheEntry).time,
+              ),
+              'value': Variable(
+                accessor: (dynamic datum) => (datum as DataCacheEntry).value,
+              ),
+              'group': Variable(
+                accessor: (dynamic datum) => (datum as DataCacheEntry).datakey,
+              ),
+            },
+            elements: [
+              LineElement(
+                position: Varset('date') * Varset('value') / Varset('group'),
+                color: colorList.length == 1
+                    ? ColorAttr(value: colorList[0])
+                    : ColorAttr(
+                        variable: 'group',
+                        values: getColorList(),
+                      ),
+              ),
+              PointElement(
+                position: Varset('date') * Varset('value') / Varset('group'),
+                size: SizeAttr(value: 20),
+                color: colorList.length == 1
+                    ? ColorAttr(value: colorList[0])
+                    : ColorAttr(
+                        variable: 'group',
+                        values: getColorList(),
+                      ),
+                shape: ShapeAttr(value: CircleShape(hollow: false)),
+              )
+            ],
+            axes: [
+              Defaults.horizontalAxis,
+              Defaults.verticalAxis,
+            ],
+            selections: {
+              'tap': PointSelection(
+                selectionCallback: (int index, double distance) {
+                  if (distance < proximityThreshold) {
+                    var dataKey = dataCache[index].datakey;
+                    var originalTime = dataCache[index].time;
+                    var originalValue = dataCache[index].value;
+                    int dataIndex = data[dataKey]!.data.indexWhere(((element) {
+                      return element.first == originalTime &&
+                          element.second == originalValue;
+                    }));
+                    _showDataInputDialog(
+                            date: dataCache[index].time,
+                            value: dataCache[index].value)
+                        .then((newValues) {
+                      if (newValues != null) {
+                        updateData(dataKey, dataIndex, newValues.data.first,
+                            newValues.data.second);
+                      }
+                    });
+                  }
+                },
+              )
+            },
+          );
   }
 
-  Widget leftTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(
-      color: Colors.blueGrey,
-      fontWeight: FontWeight.bold,
-      fontSize: 18,
-    );
-    return SideTitleWidget(
-      axisSide: meta.axisSide,
-      space: 16,
-      child: Text(meta.formattedValue, style: style),
-    );
+  List<Color> getColorList() {
+    List<Color> ret = [];
+    for (var dataKey in selectedKeys) {
+      ret.add(data[dataKey]!.color);
+    }
+    return ret;
   }
 
-  LineChartData getLineChartData() {
-    return LineChartData(
-      lineTouchData: LineTouchData(
-        touchCallback: (p0, p1) {
-          if (p0 is FlTapDownEvent &&
-              p1 is LineTouchResponse &&
-              p1.lineBarSpots != null) {
-            var data = p1.lineBarSpots!.first;
-            print("touch!: ${p1.lineBarSpots}");
-          }
-        },
-      ),
-      gridData: FlGridData(show: true, verticalInterval: dayInMiliseconds),
-      lineBarsData: getLineChartBarData(),
-      titlesData: FlTitlesData(
-        leftTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            getTitlesWidget: leftTitleWidgets,
-            reservedSize: 56,
-          ),
-        ),
-        rightTitles: AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-        bottomTitles: AxisTitles(
-          sideTitles: SideTitles(
-            interval: dayInMiliseconds,
-            showTitles: true,
-            getTitlesWidget: bottomTitleWidgets,
-            reservedSize: 36,
-          ),
-        ),
-        topTitles: AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-      ),
-    );
+  bool isChartEmpty() {
+    for (var dataKey in selectedKeys) {
+      if (data[dataKey]!.data.isNotEmpty) {
+        return false;
+      }
+    }
+    return true;
   }
 
-  List<LineChartBarData> getLineChartBarData() {
+  void updateDataCache() {
     if (reloadDataCache) {
-      lineChartBarDataCache.clear();
-      for (var datasetKey in data.keys) {
-        lineChartBarDataCache[datasetKey] = LineBarDataMeta(
-            color: data[datasetKey]!.color,
-            spots: data[datasetKey]!.data.getSpots(),
-            isCurved: false,
-            isStrokeCapRound: true,
-            barWidth: 3,
-            belowBarData: BarAreaData(
-              show: false,
-            ),
-            dotData: FlDotData(show: true),
-            displayed: selectedKeys.contains(datasetKey),
-            dataKey: datasetKey);
-      }
-      reloadDataCache = false;
-    }
-    for (var datasetKey in data.keys) {
-      if (selectedKeys.contains(datasetKey) == false ||
-          data[datasetKey]!.data.isEmpty) {
-        continue;
+      dataCache.clear();
+      for (var dataKey in selectedKeys) {
+        for (var dt in data[dataKey]!.data) {
+          dataCache.add(DataCacheEntry(dt.first, dt.second, dataKey));
+        }
       }
     }
-    List<LineChartBarData> displayed = [];
-    for (var cacheKey in lineChartBarDataCache.keys) {
-      if (lineChartBarDataCache[cacheKey]!.displayed) {
-        displayed.add(lineChartBarDataCache[cacheKey]!);
-      }
-    }
-    return displayed;
   }
 
   String? get _errorKeyText {
@@ -522,9 +489,10 @@ class DataTrackerState extends State<MyHomePage> {
         });
   }
 
-  Future<DataDialogReturn?> _showDataInputDialog() async {
+  Future<DataDialogReturn?> _showDataInputDialog(
+      {DateTime? date, double? value}) async {
     List<PopupMenuItem> keys = [];
-    _yTextFieldController.text = "";
+    _yTextFieldController.text = value != null ? "$value" : "";
     for (var key in data.keys) {
       keys.add(PopupMenuItem(
         value: keys.isEmpty ? 0 : keys.last.value + 1,
@@ -549,8 +517,10 @@ class DataTrackerState extends State<MyHomePage> {
         child: Text("Other"),
       ),
     ];
-    _timeValueText = "Today";
-    var returnDate = DateTime.now();
+    _timeValueText = date == null
+        ? "Today"
+        : DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(date);
+    var returnDate = date ?? DateTime.now();
     var smallerSide = min(MediaQuery.of(context).size.width,
             MediaQuery.of(context).size.height) /
         2;

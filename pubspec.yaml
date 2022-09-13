@@ -29,7 +29,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  fl_chart: ^0.55.0
+  # graphic: ^0.10.6
+  graphic:
+    git:
+      url: git@github.com:KapitanPL/graphic.git
+      ref: enable_callback_on_selector # branch name
   hive: ^2.2.1
   hive_flutter: ^1.1.0
 
