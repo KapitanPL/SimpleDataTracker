@@ -29,7 +29,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  fl_chart: ^0.55.0
+  # fl_chart: ^0.55.0
+  fl_chart:
+    git:
+      url: git@github.com:KapitanPL/fl_chart.git
+      ref: convert_pixels_to_coordinates # branch name
   hive: ^2.2.1
   hive_flutter: ^1.1.0
 
