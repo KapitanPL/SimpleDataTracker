@@ -26,6 +26,7 @@ ElevatedButton createKeyButton(
               width: 50,
               child: TextField(
                 style: TextStyle(color: textColor),
+                decoration: null,
                 textAlignVertical: TextAlignVertical.bottom,
                 keyboardType: TextInputType.number,
                 inputFormatters: <TextInputFormatter>[

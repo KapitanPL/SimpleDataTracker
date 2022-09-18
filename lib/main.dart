@@ -131,6 +131,9 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   void _addNewRecord() {
+    if (data.keys.isEmpty) {
+      return;
+    }
     _showDataInputDialog().then((value) {
       if (value != null) {
         assert(data.keys.contains(value.category));
@@ -158,19 +161,16 @@ class DataTrackerState extends State<MyHomePage> {
     if (box.keys.contains(hiveKeyselectedItem)) {
       selectedKeys = box.get(hiveKeyselectedItem);
     }
-    box.close();
   }
 
   Future<void> saveSettings(String key, String value) async {
     var box = await Hive.openBox('settings');
     box.put(key, value);
-    box.close();
   }
 
   Future<void> saveListSettings(String key, List<String> value) async {
     var box = await Hive.openBox('settings');
     box.put(key, value);
-    box.close();
   }
 
   Future<Map<String, DataContainer>> loadData() async {
@@ -522,9 +522,10 @@ class DataTrackerState extends State<MyHomePage> {
         });
   }
 
-  Future<DataDialogReturn?> _showDataInputDialog() async {
+  Future<DataDialogReturn?> _showDataInputDialog(
+      {DateTime? date, double? value}) async {
     List<PopupMenuItem> keys = [];
-    _yTextFieldController.text = "";
+    _yTextFieldController.text = value != null ? "$value" : "";
     for (var key in data.keys) {
       keys.add(PopupMenuItem(
         value: keys.isEmpty ? 0 : keys.last.value + 1,
@@ -549,8 +550,8 @@ class DataTrackerState extends State<MyHomePage> {
         child: Text("Other"),
       ),
     ];
-    _timeValueText = "Today";
-    var returnDate = DateTime.now();
+    _timeValueText = date == null ? "Today" : DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(date;);
+    var returnDate = date ?? DateTime.now();
     var smallerSide = min(MediaQuery.of(context).size.width,
             MediaQuery.of(context).size.height) /
         2;
