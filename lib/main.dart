@@ -4,27 +4,17 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_circle_color_picker/flutter_circle_color_picker.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:syncfusion_flutter_datepicker/datepicker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 import 'src/dataRecord/data.dart';
 import 'src/widgets/key_button.dart';
 
 typedef CallbackFunction = void Function();
-
-extension FlSpotConvertor on List<Data> {
-  List<FlSpot> getSpots() {
-    List<FlSpot> res = [];
-    for (var dt in this) {
-      res.add(FlSpot(dt.first.millisecondsSinceEpoch.toDouble(), dt.second));
-    }
-    return res;
-  }
-}
 
 extension TimeManipulation on DateTime {
   DateTime getMidnight() {
@@ -35,33 +25,6 @@ extension TimeManipulation on DateTime {
 const String hiveKeyselectedItem = "selectedItem";
 
 const double dayInMiliseconds = 24 * 60 * 60 * 1000;
-
-class LineBarDataMeta extends LineChartBarData {
-  LineBarDataMeta(
-      {super.spots,
-      super.show,
-      super.color,
-      super.gradient,
-      super.barWidth,
-      super.isCurved,
-      super.curveSmoothness,
-      super.preventCurveOverShooting,
-      super.preventCurveOvershootingThreshold,
-      super.isStrokeCapRound,
-      super.isStrokeJoinRound,
-      super.belowBarData,
-      super.aboveBarData,
-      super.dotData,
-      super.showingIndicators,
-      super.dashArray,
-      super.shadow,
-      super.isStepLineChart,
-      super.lineChartStepData,
-      required this.displayed,
-      required this.dataKey});
-  bool displayed;
-  String dataKey;
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -98,6 +61,12 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => DataTrackerState();
 }
 
+class DataCacheEntry {
+  DataCacheEntry(this.time, this.value, this.datakey);
+  DateTime time;
+  double value;
+  String datakey;
+}
 class DataTrackerState extends State<MyHomePage> {
   Map<String, DataContainer> data = {};
   final _yTextFieldController = TextEditingController();
@@ -110,7 +79,7 @@ class DataTrackerState extends State<MyHomePage> {
   String _valueEnterKey = "";
   String _timeValueText = "";
 
-  Map<String, LineBarDataMeta> lineChartBarDataCache = {};
+  List<DataCacheEntry> dataCache = [];
   bool reloadDataCache = false;
   bool dataLoaded = false;
 
@@ -318,7 +287,7 @@ class DataTrackerState extends State<MyHomePage> {
               height: MediaQuery.of(context).size.height - 50,
               width: MediaQuery.of(context).size.width * 0.98,
               child: (dataLoaded)
-                  ? LineChart(getLineChartData())
+                  ? getChart()
                   : const CircularProgressIndicator(),
             ),
           ],
@@ -346,108 +315,18 @@ class DataTrackerState extends State<MyHomePage> {
     );
   }
 
-  Widget bottomTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(
-      color: Colors.blueGrey,
-      fontWeight: FontWeight.bold,
-      fontSize: 18,
-    );
-    var timeLabel = DateTime.fromMillisecondsSinceEpoch(value.floor());
-    var timeValueText =
-        DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(timeLabel);
-    return SideTitleWidget(
-      axisSide: meta.axisSide,
-      space: 15,
-      child: Text(timeValueText, style: style),
-    );
-  }
-
-  Widget leftTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(
-      color: Colors.blueGrey,
-      fontWeight: FontWeight.bold,
-      fontSize: 18,
-    );
-    return SideTitleWidget(
-      axisSide: meta.axisSide,
-      space: 16,
-      child: Text(meta.formattedValue, style: style),
-    );
-  }
-
-  LineChartData getLineChartData() {
-    return LineChartData(
-      lineTouchData: LineTouchData(
-        touchCallback: (p0, p1) {
-          if (p0 is FlTapDownEvent &&
-              p1 is LineTouchResponse &&
-              p1.lineBarSpots != null) {
-            var data = p1.lineBarSpots!.first;
-            print("touch!: ${p1.lineBarSpots}");
-          }
-        },
-      ),
-      gridData: FlGridData(show: true, verticalInterval: dayInMiliseconds),
-      lineBarsData: getLineChartBarData(),
-      titlesData: FlTitlesData(
-        leftTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            getTitlesWidget: leftTitleWidgets,
-            reservedSize: 56,
-          ),
-        ),
-        rightTitles: AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-        bottomTitles: AxisTitles(
-          sideTitles: SideTitles(
-            interval: dayInMiliseconds,
-            showTitles: true,
-            getTitlesWidget: bottomTitleWidgets,
-            reservedSize: 36,
-          ),
-        ),
-        topTitles: AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-      ),
-    );
-  }
-
-  List<LineChartBarData> getLineChartBarData() {
-    if (reloadDataCache) {
-      lineChartBarDataCache.clear();
-      for (var datasetKey in data.keys) {
-        lineChartBarDataCache[datasetKey] = LineBarDataMeta(
-            color: data[datasetKey]!.color,
-            spots: data[datasetKey]!.data.getSpots(),
-            isCurved: false,
-            isStrokeCapRound: true,
-            barWidth: 3,
-            belowBarData: BarAreaData(
-              show: false,
-            ),
-            dotData: FlDotData(show: true),
-            displayed: selectedKeys.contains(datasetKey),
-            dataKey: datasetKey);
-      }
-      reloadDataCache = false;
-    }
-    for (var datasetKey in data.keys) {
-      if (selectedKeys.contains(datasetKey) == false ||
-          data[datasetKey]!.data.isEmpty) {
-        continue;
-      }
-    }
-    List<LineChartBarData> displayed = [];
-    for (var cacheKey in lineChartBarDataCache.keys) {
-      if (lineChartBarDataCache[cacheKey]!.displayed) {
-        displayed.add(lineChartBarDataCache[cacheKey]!);
-      }
-    }
-    return displayed;
-  }
+  SfCartesianChart getChart() {return 
+  SfCartesianChart(
+                        primaryXAxis: DateTimeAxis(),
+                        series: <ChartSeries>[
+                            // Renders line chart
+                            LineSeries<DataCacheEntry, DateTime>(
+                                dataSource: dataCache,
+                                xValueMapper: (DataCacheEntry dataItem, _) => dataItem.time,
+                                yValueMapper: (DataCacheEntry dataItem, _) => dataItem.value
+                            )
+                        ]
+                    );}
 
   String? get _errorKeyText {
     // at any time, we can get the text from _controller.value.text
