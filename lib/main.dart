@@ -85,6 +85,7 @@ class DataTrackerState extends State<MyHomePage> {
   List<DataCacheEntry> dataCache = [];
   bool reloadDataCache = false;
   bool dataLoaded = false;
+  bool dataChacheChanged = false;
 
   DataTrackerState() {
     loadSettings();
@@ -319,15 +320,21 @@ class DataTrackerState extends State<MyHomePage> {
 
   Widget getChart() {
     updateDataCache();
+    double? lastDistance;
+    int? lastIndex;
     var colorList = getColorList();
-    return isChartEmpty()
+    Widget returnWidget = isChartEmpty()
         ? const Text("No data to display")
         : Chart(
             data: dataCache,
+            rebuild: dataChacheChanged,
             variables: {
               'date': Variable(
-                accessor: (dynamic datum) => (datum as DataCacheEntry).time,
-              ),
+                  accessor: (dynamic datum) => (datum as DataCacheEntry).time,
+                  scale: TimeScale(
+                      formatter: (DateTime date) =>
+                          DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY)
+                              .format(date))),
               'value': Variable(
                 accessor: (dynamic datum) => (datum as DataCacheEntry).value,
               ),
@@ -358,13 +365,22 @@ class DataTrackerState extends State<MyHomePage> {
               )
             ],
             axes: [
-              Defaults.horizontalAxis,
-              Defaults.verticalAxis,
+              Defaults.horizontalAxis
+                ..grid = StrokeStyle(color: Colors.black)
+                ..label!.style =
+                    const TextStyle(color: Colors.black, fontSize: 20),
+              Defaults.verticalAxis
+                ..label!.style =
+                    const TextStyle(color: Colors.black, fontSize: 20),
             ],
             selections: {
               'tap': PointSelection(
                 selectionCallback: (int index, double distance) {
-                  if (distance < proximityThreshold) {
+                  if (distance < proximityThreshold &&
+                      index != lastIndex &&
+                      distance != lastDistance) {
+                    lastIndex = index;
+                    lastDistance = distance;
                     var dataKey = dataCache[index].datakey;
                     var originalTime = dataCache[index].time;
                     var originalValue = dataCache[index].value;
@@ -386,6 +402,8 @@ class DataTrackerState extends State<MyHomePage> {
               )
             },
           );
+    dataChacheChanged = false;
+    return returnWidget;
   }
 
   List<Color> getColorList() {
@@ -413,6 +431,7 @@ class DataTrackerState extends State<MyHomePage> {
           dataCache.add(DataCacheEntry(dt.first, dt.second, dataKey));
         }
       }
+      dataChacheChanged = true;
     }
   }
 
