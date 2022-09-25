@@ -67,6 +67,7 @@ class DataCacheEntry {
   double value;
   String datakey;
 }
+
 class DataTrackerState extends State<MyHomePage> {
   Map<String, DataContainer> data = {};
   final _yTextFieldController = TextEditingController();
@@ -79,7 +80,7 @@ class DataTrackerState extends State<MyHomePage> {
   String _valueEnterKey = "";
   String _timeValueText = "";
 
-  List<DataCacheEntry> dataCache = [];
+  Map<String, List<DataCacheEntry>> dataCache = {};
   bool reloadDataCache = false;
   bool dataLoaded = false;
 
@@ -286,9 +287,8 @@ class DataTrackerState extends State<MyHomePage> {
             SizedBox(
               height: MediaQuery.of(context).size.height - 50,
               width: MediaQuery.of(context).size.width * 0.98,
-              child: (dataLoaded)
-                  ? getChart()
-                  : const CircularProgressIndicator(),
+              child:
+                  (dataLoaded) ? getChart() : const CircularProgressIndicator(),
             ),
           ],
         ),
@@ -315,18 +315,60 @@ class DataTrackerState extends State<MyHomePage> {
     );
   }
 
-  SfCartesianChart getChart() {return 
-  SfCartesianChart(
-                        primaryXAxis: DateTimeAxis(),
-                        series: <ChartSeries>[
-                            // Renders line chart
-                            LineSeries<DataCacheEntry, DateTime>(
-                                dataSource: dataCache,
-                                xValueMapper: (DataCacheEntry dataItem, _) => dataItem.time,
-                                yValueMapper: (DataCacheEntry dataItem, _) => dataItem.value
-                            )
-                        ]
-                    );}
+  void updateDataCache() {
+    if (reloadDataCache) {
+      dataCache.clear();
+      for (var dataKey in selectedKeys) {
+        if (data[dataKey]!.data.isNotEmpty && !dataCache.containsKey(dataKey)) {
+          dataCache[dataKey] = [];
+        }
+        for (var dt in data[dataKey]!.data) {
+          dataCache[dataKey]!.add(DataCacheEntry(dt.first, dt.second, dataKey));
+        }
+      }
+    }
+  }
+
+  SfCartesianChart getChart() {
+    updateDataCache();
+    List<ChartSeries> series = [];
+    for (var dataKey in dataCache.keys) {
+      series.add(LineSeries<DataCacheEntry, DateTime>(
+          dataSource: dataCache[dataKey]!,
+          xValueMapper: (DataCacheEntry dataItem, _) => dataItem.time,
+          yValueMapper: (DataCacheEntry dataItem, _) => dataItem.value,
+          color: data[dataKey]!.color));
+      series.add(ScatterSeries<DataCacheEntry, DateTime>(
+        dataSource: dataCache[dataKey]!,
+        xValueMapper: (DataCacheEntry dataItem, _) => dataItem.time,
+        yValueMapper: (DataCacheEntry dataItem, _) => dataItem.value,
+        color: data[dataKey]!.color,
+        markerSettings: const MarkerSettings(
+            shape: DataMarkerType.circle, width: 20, height: 20),
+        onPointTap: (pointInteractionDetails) {
+          var index = pointInteractionDetails.pointIndex!;
+          var originalTime = dataCache[dataKey]![index].time;
+          var originalValue = dataCache[dataKey]![index].value;
+          int dataIndex = data[dataKey]!.data.indexWhere(((element) {
+            return element.first == originalTime &&
+                element.second == originalValue;
+          }));
+          _showDataInputDialog(
+                  date: dataCache[index].time, value: dataCache[index].value)
+              .then((newValues) {
+            if (newValues != null) {
+              updateData(dataKey, dataIndex, newValues.data.first,
+                  newValues.data.second);
+            }
+          });
+        },
+      ));
+    }
+    return SfCartesianChart(
+        primaryXAxis: DateTimeAxis(
+            dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY)),
+        series: series);
+  }
 
   String? get _errorKeyText {
     // at any time, we can get the text from _controller.value.text
@@ -429,7 +471,9 @@ class DataTrackerState extends State<MyHomePage> {
         child: Text("Other"),
       ),
     ];
-    _timeValueText = date == null ? "Today" : DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(date;);
+    _timeValueText = date == null
+        ? "Today"
+        : DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(date);
     var returnDate = date ?? DateTime.now();
     var smallerSide = min(MediaQuery.of(context).size.width,
             MediaQuery.of(context).size.height) /
