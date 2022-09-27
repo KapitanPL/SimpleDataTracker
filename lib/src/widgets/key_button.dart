@@ -41,14 +41,16 @@ ElevatedButton createKeyButton(
                       double.parse(lastValueFieldController.text));
                 },
               )),
-          Text(key,
-              style: TextStyle(
-                color: textColor,
-                fontWeight: state.selectedKeys.contains(key)
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-                fontSize: state.selectedKeys.contains(key) ? 20 : 12,
-              )),
+          Flexible(
+              child: Text(key,
+                  style: TextStyle(
+                    overflow: TextOverflow.ellipsis,
+                    color: textColor,
+                    fontWeight: state.selectedKeys.contains(key)
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    fontSize: state.selectedKeys.contains(key) ? 20 : 12,
+                  ))),
           PopupMenuButton(
             position: PopupMenuPosition.under,
             iconSize: 15,
