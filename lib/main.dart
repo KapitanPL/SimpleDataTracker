@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -28,7 +27,6 @@ const double dayInMiliseconds = 24 * 60 * 60 * 1000;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.leanBack);
   var directory = await getApplicationSupportDirectory(); //? Or some better
   Hive
     ..init(directory.path)
@@ -278,7 +276,7 @@ class DataTrackerState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
-            const SizedBox(width: 20),
+            SizedBox(height: MediaQuery.of(context).viewPadding.top),
             Wrap(
               alignment: WrapAlignment.start,
               spacing: 10,
@@ -349,25 +347,23 @@ class DataTrackerState extends State<MyHomePage> {
           var index = pointInteractionDetails.pointIndex!;
           var originalTime = dataCache[dataKey]![index].time;
           var originalValue = dataCache[dataKey]![index].value;
-          int dataIndex = data[dataKey]!.data.indexWhere(((element) {
-            return element.first == originalTime &&
-                element.second == originalValue;
-          }));
-          _showDataInputDialog(
-                  date: dataCache[index].time, value: dataCache[index].value)
+          _showDataInputDialog(date: originalTime, value: originalValue)
               .then((newValues) {
             if (newValues != null) {
-              updateData(dataKey, dataIndex, newValues.data.first,
-                  newValues.data.second);
+              updateData(
+                  dataKey, index, newValues.data.first, newValues.data.second);
             }
           });
         },
       ));
     }
     return SfCartesianChart(
-        primaryXAxis: DateTimeAxis(
-            dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY)),
-        series: series);
+      primaryXAxis:
+          DateTimeAxis(dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY)),
+      series: series,
+      zoomPanBehavior:
+          ZoomPanBehavior(enableMouseWheelZooming: true, enablePinching: true),
+    );
   }
 
   String? get _errorKeyText {
@@ -450,7 +446,11 @@ class DataTrackerState extends State<MyHomePage> {
     for (var key in data.keys) {
       keys.add(PopupMenuItem(
         value: keys.isEmpty ? 0 : keys.last.value + 1,
-        child: Text(key),
+        child: Flexible(
+            child: Text(
+          key,
+          //style: const TextStyle(overflow: TextOverflow.ellipsis),
+        )),
       ));
     }
     if (!data.keys.contains(_valueEnterKey)) {
@@ -499,7 +499,11 @@ class DataTrackerState extends State<MyHomePage> {
                           });
                         },
                         child: Row(children: [
-                          Expanded(child: Text(_valueEnterKey)),
+                          Flexible(
+                              child: Text(_valueEnterKey,
+                                  style: const TextStyle(
+                                    overflow: TextOverflow.ellipsis,
+                                  ))),
                           const Icon(Icons.keyboard_double_arrow_down)
                         ]),
                       ),
