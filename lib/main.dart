@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_circle_color_picker/flutter_circle_color_picker.dart';
 import 'package:hive/hive.dart';
@@ -447,10 +448,8 @@ class DataTrackerState extends State<MyHomePage> {
       keys.add(PopupMenuItem(
         value: keys.isEmpty ? 0 : keys.last.value + 1,
         child: Flexible(
-            child: Text(
-          key,
-          //style: const TextStyle(overflow: TextOverflow.ellipsis),
-        )),
+            child: Text(key,
+                style: const TextStyle(overflow: TextOverflow.ellipsis))),
       ));
     }
     if (!data.keys.contains(_valueEnterKey)) {
@@ -495,15 +494,18 @@ class DataTrackerState extends State<MyHomePage> {
                         onSelected: (item) {
                           setState(() {
                             _valueEnterKey =
-                                (keys[item.hashCode].child as Text).data!;
+                                ((keys[item.hashCode].child as Flexible).child
+                                        as Text)
+                                    .data!;
                           });
                         },
                         child: Row(children: [
                           Flexible(
-                              child: Text(_valueEnterKey,
-                                  style: const TextStyle(
-                                    overflow: TextOverflow.ellipsis,
-                                  ))),
+                              child: Text(
+                            _valueEnterKey,
+                            style: const TextStyle(
+                                overflow: TextOverflow.ellipsis),
+                          )),
                           const Icon(Icons.keyboard_double_arrow_down)
                         ]),
                       ),
@@ -641,22 +643,27 @@ class DataTrackerState extends State<MyHomePage> {
             }),
             actions: <Widget>[
               ElevatedButton(
-                child: const Text("Cancel"),
-                onPressed: () => Navigator.pop(context),
-              ),
+                  child: const Text("Cancel"),
+                  onPressed: () {
+                    _valueEnterKey = "";
+                    Navigator.pop(context);
+                  }),
               ElevatedButton(
-                child: const Text('OK'),
-                onPressed: () => _yTextFieldController.text.isEmpty
-                    ? Navigator.pop(context)
-                    : Navigator.pop(
-                        context,
-                        DataDialogReturn(
-                            category: _valueEnterKey,
-                            data: Data(
-                                first: returnDate,
-                                second:
-                                    double.parse(_yTextFieldController.text)))),
-              ),
+                  child: const Text('OK'),
+                  onPressed: () {
+                    var categoryKey = _valueEnterKey;
+                    _valueEnterKey = "";
+                    _yTextFieldController.text.isEmpty
+                        ? Navigator.pop(context)
+                        : Navigator.pop(
+                            context,
+                            DataDialogReturn(
+                                category: categoryKey,
+                                data: Data(
+                                    first: returnDate,
+                                    second: double.parse(
+                                        _yTextFieldController.text))));
+                  }),
             ],
           );
         });
