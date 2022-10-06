@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:datatracker/src/utils/contrast_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 
 import 'src/dataRecord/data.dart';
 import 'src/widgets/key_button.dart';
+import 'src/widgets/custom_popup_menu_item.dart';
 
 typedef CallbackFunction = void Function();
 
@@ -82,6 +84,7 @@ class DataTrackerState extends State<MyHomePage> {
   Map<String, List<DataCacheEntry>> dataCache = {};
   bool reloadDataCache = false;
   bool dataLoaded = false;
+  bool expandedMenu = false;
 
   DataTrackerState() {
     loadSettings();
@@ -278,40 +281,70 @@ class DataTrackerState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
             SizedBox(height: MediaQuery.of(context).viewPadding.top),
-            Wrap(
-              alignment: WrapAlignment.start,
-              spacing: 10,
-              children: dataLabels,
-            ),
-            SizedBox(
-              height: MediaQuery.of(context).size.height - 50,
-              width: MediaQuery.of(context).size.width * 0.98,
+            ConstrainedBox(
+                constraints: BoxConstraints(
+                    minHeight: 20,
+                    maxHeight: MediaQuery.of(context).size.height / 4),
+                child: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: Wrap(
+                      alignment: WrapAlignment.start,
+                      spacing: 10,
+                      children: dataLabels,
+                    ))),
+            Expanded(
               child:
                   (dataLoaded) ? getChart() : const CircularProgressIndicator(),
             ),
           ],
         ),
       ),
-      floatingActionButton: dataLoaded
-          ? Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-              FloatingActionButton(
-                onPressed: () => _editSeries().then((value) => {
-                      if (value != null) {_addKey(value)}
-                    }),
-                tooltip: 'Add new record',
-                mini: true,
-                child: const Icon(Icons.add_chart_outlined),
-              ),
-              const SizedBox(height: 15),
-              FloatingActionButton(
-                onPressed: _addNewRecord,
-                tooltip: 'Add new record',
-                child: const Icon(Icons.add),
-              ),
-              const SizedBox(height: 15),
-            ])
-          : null,
+      floatingActionButton: getFloatingActionButton(),
     );
+  }
+
+  Widget? getFloatingActionButton() {
+    if (dataLoaded) {
+      List<Widget> floatingButtons = [];
+      if (expandedMenu) {
+        floatingButtons.addAll([
+          FloatingActionButton(
+            onPressed: () => _editSeries().then((value) => {
+                  if (value != null) {_addKey(value)}
+                }),
+            mini: true,
+            child: expandedMenu
+                ? const Icon(Icons.add_chart)
+                : Transform.scale(
+                    scaleX: -1, child: const Icon(Icons.play_arrow_sharp)),
+          ),
+        ]);
+      }
+      floatingButtons.addAll([
+        FloatingActionButton(
+          backgroundColor: expandedMenu ? Colors.orangeAccent : Colors.teal,
+          onPressed: () => setState(() {
+            expandedMenu = !expandedMenu;
+          }),
+          tooltip: expandedMenu ? "Close actions" : "Open actions",
+          mini: true,
+          child: expandedMenu
+              ? const Icon(Icons.play_arrow_sharp)
+              : Transform.scale(
+                  scaleX: -1, child: const Icon(Icons.play_arrow_sharp)),
+        ),
+        const SizedBox(height: 15),
+        FloatingActionButton(
+          onPressed: _addNewRecord,
+          tooltip: "Add new data to data series",
+          child: const Icon(Icons.add),
+        ),
+        const SizedBox(height: 15),
+      ]);
+      return Column(
+          mainAxisAlignment: MainAxisAlignment.end, children: floatingButtons);
+    }
+    return null;
   }
 
   void updateDataCache() {
@@ -445,15 +478,22 @@ class DataTrackerState extends State<MyHomePage> {
     List<PopupMenuItem> keys = [];
     _yTextFieldController.text = value != null ? "$value" : "";
     for (var key in data.keys) {
-      keys.add(PopupMenuItem(
+      keys.add(CustomPopupMenuItem(
         value: keys.isEmpty ? 0 : keys.last.value + 1,
-        child: Flexible(
-            child: Text(key,
-                style: const TextStyle(overflow: TextOverflow.ellipsis))),
+        color: data[key]!.color,
+        child: Text(key,
+            style: TextStyle(
+                overflow: TextOverflow.ellipsis,
+                //backgroundColor: data[key]!.color,
+                color: contrastColor(data[key]!.color))),
       ));
     }
     if (!data.keys.contains(_valueEnterKey)) {
-      _valueEnterKey = selectedKeys.last;
+      if (selectedKeys.isEmpty) {
+        _valueEnterKey = data.keys.first;
+      } else {
+        _valueEnterKey = selectedKeys.last;
+      }
     }
 
     const List<PopupMenuItem> timeKeys = [
@@ -494,20 +534,26 @@ class DataTrackerState extends State<MyHomePage> {
                         onSelected: (item) {
                           setState(() {
                             _valueEnterKey =
-                                ((keys[item.hashCode].child as Flexible).child
-                                        as Text)
-                                    .data!;
+                                (keys[item.hashCode].child as Text).data!;
                           });
                         },
-                        child: Row(children: [
-                          Flexible(
-                              child: Text(
-                            _valueEnterKey,
-                            style: const TextStyle(
-                                overflow: TextOverflow.ellipsis),
-                          )),
-                          const Icon(Icons.keyboard_double_arrow_down)
-                        ]),
+                        child: Container(
+                            color: data[_valueEnterKey]!.color,
+                            child: Row(children: [
+                              Icon(
+                                Icons.keyboard_double_arrow_down,
+                                color:
+                                    contrastColor(data[_valueEnterKey]!.color),
+                              ),
+                              Flexible(
+                                  child: Text(
+                                _valueEnterKey,
+                                style: TextStyle(
+                                    overflow: TextOverflow.ellipsis,
+                                    color: contrastColor(
+                                        data[_valueEnterKey]!.color)),
+                              )),
+                            ])),
                       ),
                       Row(
                         children: [
@@ -621,8 +667,8 @@ class DataTrackerState extends State<MyHomePage> {
                               }
                             },
                             child: Row(children: [
+                              const Icon(Icons.keyboard_double_arrow_down),
                               Expanded(child: Text(_timeValueText)),
-                              const Icon(Icons.keyboard_double_arrow_down)
                             ]),
                           )),
                           Expanded(
