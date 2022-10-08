@@ -11,6 +11,7 @@ import 'package:syncfusion_flutter_datepicker/datepicker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:split_view/split_view.dart';
 
 import 'src/dataRecord/data.dart';
 import 'src/widgets/key_button.dart';
@@ -25,6 +26,7 @@ extension TimeManipulation on DateTime {
 }
 
 const String hiveKeyselectedItem = "selectedItem";
+const String hiveKeySplitterWeights = "splitterWeights";
 
 const double dayInMiliseconds = 24 * 60 * 60 * 1000;
 
@@ -80,6 +82,7 @@ class DataTrackerState extends State<MyHomePage> {
   List<String> selectedKeys = [];
   String _valueEnterKey = "";
   String _timeValueText = "";
+  List<double> _splitterWeights = [0.1, 0.9];
 
   Map<String, List<DataCacheEntry>> dataCache = {};
   bool reloadDataCache = false;
@@ -133,6 +136,9 @@ class DataTrackerState extends State<MyHomePage> {
     if (box.keys.contains(hiveKeyselectedItem)) {
       selectedKeys = box.get(hiveKeyselectedItem);
     }
+    if (box.keys.contains(hiveKeySplitterWeights)) {
+      _splitterWeights = box.get(hiveKeySplitterWeights);
+    }
   }
 
   Future<void> saveSettings(String key, String value) async {
@@ -140,7 +146,7 @@ class DataTrackerState extends State<MyHomePage> {
     box.put(key, value);
   }
 
-  Future<void> saveListSettings(String key, List<String> value) async {
+  Future<void> saveListSettings(String key, List<dynamic> value) async {
     var box = await Hive.openBox('settings');
     box.put(key, value);
   }
@@ -275,11 +281,26 @@ class DataTrackerState extends State<MyHomePage> {
     for (var key in data.keys) {
       dataLabels.add(createKeyButton(key, context, this));
     }
+    var activeWidget =
+        dataLoaded ? getChart() : const CircularProgressIndicator();
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: <Widget>[
+      body: SplitView(
+        viewMode: SplitViewMode.Vertical,
+        controller: SplitViewController(limits: [
+          WeightLimit(min: 0.05, max: 0.35),
+          WeightLimit(min: 0.65, max: 0.95)
+        ], weights: _splitterWeights),
+        onWeightChanged: (weightList) {
+          _splitterWeights.clear();
+          for (var weight in weightList) {
+            if (weight != null) {
+              _splitterWeights.add(weight);
+            }
+          }
+          saveListSettings(hiveKeySplitterWeights, _splitterWeights);
+        },
+        children: [
+          Column(children: <Widget>[
             SizedBox(height: MediaQuery.of(context).viewPadding.top),
             ConstrainedBox(
                 constraints: BoxConstraints(
@@ -291,13 +312,10 @@ class DataTrackerState extends State<MyHomePage> {
                       alignment: WrapAlignment.start,
                       spacing: 10,
                       children: dataLabels,
-                    ))),
-            Expanded(
-              child:
-                  (dataLoaded) ? getChart() : const CircularProgressIndicator(),
-            ),
-          ],
-        ),
+                    )))
+          ]),
+          activeWidget,
+        ],
       ),
       floatingActionButton: getFloatingActionButton(),
     );
