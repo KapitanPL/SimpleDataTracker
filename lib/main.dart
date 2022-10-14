@@ -187,8 +187,11 @@ class DataTrackerState extends State<MyHomePage> {
 
   void updateData(String key, int index, DateTime date, double value) {
     assert(data.keys.contains(key));
-    assert(data[key]!.data.length > index && index >= 0);
+    assert(data[key]!.data.length >= index && index >= 0);
     setState(() {
+      if (data[key]!.data.isEmpty && index == 0) {
+        data[key]!.data.add(Data(first: date, second: value));
+      }
       if (data[key]!.data[index].first == date) {
         data[key]!.data[index].second = value;
       } else {
@@ -300,20 +303,18 @@ class DataTrackerState extends State<MyHomePage> {
           saveListSettings(hiveKeySplitterWeights, _splitterWeights);
         },
         children: [
-          Column(children: <Widget>[
-            SizedBox(height: MediaQuery.of(context).viewPadding.top),
-            ConstrainedBox(
-                constraints: BoxConstraints(
-                    minHeight: 20,
-                    maxHeight: MediaQuery.of(context).size.height / 4),
-                child: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: Wrap(
+          SizedBox(
+              height: 50,
+              child: SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  child: Column(children: <Widget>[
+                    SizedBox(height: MediaQuery.of(context).viewPadding.top),
+                    Wrap(
                       alignment: WrapAlignment.start,
-                      spacing: 10,
+                      spacing: 3,
                       children: dataLabels,
-                    )))
-          ]),
+                    )
+                  ]))),
           activeWidget,
         ],
       ),
@@ -410,8 +411,9 @@ class DataTrackerState extends State<MyHomePage> {
       ));
     }
     return SfCartesianChart(
-      primaryXAxis:
-          DateTimeAxis(dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY)),
+      primaryXAxis: DateTimeAxis(
+          dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY),
+          visibleMinimum: DateTime.now().subtract(const Duration(days: 7))),
       series: series,
       zoomPanBehavior:
           ZoomPanBehavior(enableMouseWheelZooming: true, enablePinching: true),
