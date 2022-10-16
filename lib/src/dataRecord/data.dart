@@ -28,17 +28,15 @@ class Data extends HiveObject {
 class DataDialogReturn {
   String category;
   Data data;
-  DataDialogReturn({required this.category, required this.data});
+  bool delete = false;
+  DataDialogReturn(
+      {required this.category, required this.data, this.delete = false});
 }
 
 @HiveType(typeId: 2)
 class DataContainer {
   DataContainer({required this.name, required this.note, required this.color});
-  DataContainer.fromData(
-      {required this.name,
-      required this.note,
-      required this.color,
-      required this.data});
+
   @HiveField(0)
   List<Data> data = [];
 

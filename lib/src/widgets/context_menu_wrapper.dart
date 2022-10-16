@@ -6,6 +6,7 @@ class ContextMenuWrapper<T> extends GestureDetector {
   ContextMenuWrapper(
       {Key? key,
       required Widget child,
+      required void Function()? tapCallback,
       required BuildContext context,
       required List<PopupMenuItem<T>> items,
       required void Function(T?) itemCallback})
@@ -14,6 +15,7 @@ class ContextMenuWrapper<T> extends GestureDetector {
             onTapDown: (details) {
               _position = details.globalPosition;
             },
+            onTapUp: (details) => tapCallback?.call(),
             onLongPress: () {
               showMenu(
                       context: context,

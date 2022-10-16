@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../utils/contrast_color.dart';
+import '../utils/time_utils.dart';
 
 import '../../main.dart';
 
@@ -21,21 +22,9 @@ ElevatedButton createKeyButton(
           elevation: state.selectedKeys.contains(key) ? 10 : 0,
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2)),
       onPressed: () => state.keyValuePressed(key),
-      onLongPress: () => showMenu(
-              context: context,
-              position: const RelativeRect.fromLTRB(1000.0, 600.0, 0.0, 0.0),
-              items: [
-                const PopupMenuItem(
-                  value: 0,
-                  child: Text('Edit'),
-                ),
-                const PopupMenuItem(
-                  value: 1,
-                  child: Text('Delete'),
-                ),
-              ]),
       child: ContextMenuWrapper<int>(
         context: context,
+        tapCallback: () => state.keyValuePressed(key),
         items: const <PopupMenuItem<int>>[
           PopupMenuItem(
             value: 0,
