@@ -23,38 +23,8 @@ List<Widget> getChildrenWidget() {
   return widgets;
 }
 
-Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
-    Map<String, DataContainer> data, List<String> selectedKeys,
-    {DateTime? date,
-    double? value,
-    String? note,
-    String? defaultKey,
-    bool enableDelete = false}) async {
-  List<PopupMenuItem> keys = [];
-  _yTextFieldController.text = value != null ? "$value" : "";
-  _noteTextFieldController.text = note ?? "";
-  for (var key in data.keys) {
-    keys.add(CustomPopupMenuItem(
-      value: keys.isEmpty ? 0 : keys.last.value + 1,
-      color: data[key]!.color,
-      child: Text(key,
-          style: TextStyle(
-              overflow: TextOverflow.ellipsis,
-              //backgroundColor: data[key]!.color,
-              color: contrastColor(data[key]!.color))),
-    ));
-  }
-  if (!data.keys.contains(_valueEnterKey)) {
-    if (selectedKeys.isEmpty) {
-      _valueEnterKey = data.keys.first;
-    } else if (defaultKey != null && data.keys.contains(defaultKey)) {
-      _valueEnterKey = defaultKey;
-    } else {
-      _valueEnterKey = selectedKeys.last;
-    }
-  }
-
-  const List<PopupMenuItem> timeKeys = [
+class DataInputDialog extends AlertDialog {
+  static const List<PopupMenuItem> timeKeys = [
     PopupMenuItem(
       value: 0,
       child: Text("Today"),
@@ -68,69 +38,17 @@ Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
       child: Text("Other"),
     ),
   ];
-  _timeValueText = date == null
-      ? "Today"
-      : DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(date);
-  var returnDate = date ?? DateTime.now();
-  var smallerSide = min(MediaQuery.of(context).size.width,
-          MediaQuery.of(context).size.height) /
-      2;
-  var actionButtons = <Widget>[];
-  if (enableDelete) {
-    actionButtons.add(ElevatedButton(
-      //delete Button
-      onPressed: () {
-        yesNoQuestion(context, "Delete data point?").then((value) {
-          if (value) {
-            var categoryKey = _valueEnterKey;
-            _valueEnterKey = "";
-            _yTextFieldController.text.isEmpty
-                ? Navigator.pop(context)
-                : Navigator.pop(
-                    context,
-                    DataDialogReturn(
-                        category: categoryKey,
-                        data: Data(
-                            first: returnDate,
-                            second: double.parse(_yTextFieldController.text),
-                            note: _noteTextFieldController.text),
-                        delete: true));
-          }
-        });
-      },
-      style: ElevatedButton.styleFrom(
-        primary: Colors.red.shade300,
-      ),
-      child: const Text("Delete"),
-    ));
+  static DateTime returnDate = DateTime.now();
+  static double smallerSide = 100;
+
+  static List<Widget> getChildren() {
+    List<Widget> children = [];
+    return children;
   }
-  actionButtons.addAll(<Widget>[
-    ElevatedButton(
-        child: const Text("Cancel"),
-        onPressed: () {
-          _valueEnterKey = "";
-          Navigator.pop(context);
-        }),
-    ElevatedButton(
-        child: const Text('OK'),
-        onPressed: () {
-          var categoryKey = _valueEnterKey;
-          _valueEnterKey = "";
-          _yTextFieldController.text.isEmpty
-              ? Navigator.pop(context)
-              : Navigator.pop(
-                  context,
-                  DataDialogReturn(
-                      category: categoryKey,
-                      data: Data(
-                          first: returnDate,
-                          second: double.parse(_yTextFieldController.text))));
-        }),
-  ]);
-  return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
+
+  DataInputDialog(BuildContext context, List<Widget> actionButtons,
+      List<PopupMenuItem> keys, Map<String, DataContainer> data)
+      : super(
           content: StatefulBuilder(
               builder: (BuildContext context, StateSetter setState) {
             return SizedBox(
@@ -303,5 +221,102 @@ Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
           }),
           actions: actionButtons,
         );
+}
+
+Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
+    Map<String, DataContainer> data, List<String> selectedKeys,
+    {DateTime? date,
+    double? value,
+    String? note,
+    String? defaultKey,
+    bool enableDelete = false}) async {
+  List<PopupMenuItem> keys = [];
+  _yTextFieldController.text = value != null ? "$value" : "";
+  _noteTextFieldController.text = note ?? "";
+
+  DataInputDialog.returnDate = date ?? DataInputDialog.returnDate;
+  DataInputDialog.smallerSide = min(MediaQuery.of(context).size.width,
+          MediaQuery.of(context).size.height) /
+      2;
+
+  for (var key in data.keys) {
+    keys.add(CustomPopupMenuItem(
+      value: keys.isEmpty ? 0 : keys.last.value + 1,
+      color: data[key]!.color,
+      child: Text(key,
+          style: TextStyle(
+              overflow: TextOverflow.ellipsis,
+              //backgroundColor: data[key]!.color,
+              color: contrastColor(data[key]!.color))),
+    ));
+  }
+  if (!data.keys.contains(_valueEnterKey)) {
+    if (selectedKeys.isEmpty) {
+      _valueEnterKey = data.keys.first;
+    } else if (defaultKey != null && data.keys.contains(defaultKey)) {
+      _valueEnterKey = defaultKey;
+    } else {
+      _valueEnterKey = selectedKeys.last;
+    }
+  }
+  _timeValueText = date == null
+      ? "Today"
+      : DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(date);
+  var actionButtons = <Widget>[];
+  if (enableDelete) {
+    actionButtons.add(ElevatedButton(
+      //delete Button
+      onPressed: () {
+        yesNoQuestion(context, "Delete data point?").then((value) {
+          if (value) {
+            var categoryKey = _valueEnterKey;
+            _valueEnterKey = "";
+            _yTextFieldController.text.isEmpty
+                ? Navigator.pop(context)
+                : Navigator.pop(
+                    context,
+                    DataDialogReturn(
+                        category: categoryKey,
+                        data: Data(
+                            first: DataInputDialog.returnDate,
+                            second: double.parse(_yTextFieldController.text),
+                            note: _noteTextFieldController.text),
+                        delete: true));
+          }
+        });
+      },
+      style: ElevatedButton.styleFrom(
+        primary: Colors.red.shade300,
+      ),
+      child: const Text("Delete"),
+    ));
+  }
+  actionButtons.addAll(<Widget>[
+    ElevatedButton(
+        child: const Text("Cancel"),
+        onPressed: () {
+          _valueEnterKey = "";
+          Navigator.pop(context);
+        }),
+    ElevatedButton(
+        child: const Text('OK'),
+        onPressed: () {
+          var categoryKey = _valueEnterKey;
+          _valueEnterKey = "";
+          _yTextFieldController.text.isEmpty
+              ? Navigator.pop(context)
+              : Navigator.pop(
+                  context,
+                  DataDialogReturn(
+                      category: categoryKey,
+                      data: Data(
+                          first: DataInputDialog.returnDate,
+                          second: double.parse(_yTextFieldController.text))));
+        }),
+  ]);
+  return showDialog(
+      context: context,
+      builder: (context) {
+        return DataInputDialog(context, actionButtons, keys, data);
       });
 }
