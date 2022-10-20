@@ -14,14 +14,25 @@ import 'package:datatracker/src/dialogs/yes_no_question.dart';
 import 'package:datatracker/src/utils/time_utils.dart';
 
 final _yTextFieldController = TextEditingController();
+final _noteTextFieldController = TextEditingController();
 String _valueEnterKey = "";
 String _timeValueText = "";
 
+List<Widget> getChildrenWidget() {
+  List<Widget> widgets = [];
+  return widgets;
+}
+
 Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
     Map<String, DataContainer> data, List<String> selectedKeys,
-    {DateTime? date, double? value, bool enableDelete = false}) async {
+    {DateTime? date,
+    double? value,
+    String? note,
+    String? defaultKey,
+    bool enableDelete = false}) async {
   List<PopupMenuItem> keys = [];
   _yTextFieldController.text = value != null ? "$value" : "";
+  _noteTextFieldController.text = note ?? "";
   for (var key in data.keys) {
     keys.add(CustomPopupMenuItem(
       value: keys.isEmpty ? 0 : keys.last.value + 1,
@@ -36,6 +47,8 @@ Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
   if (!data.keys.contains(_valueEnterKey)) {
     if (selectedKeys.isEmpty) {
       _valueEnterKey = data.keys.first;
+    } else if (defaultKey != null && data.keys.contains(defaultKey)) {
+      _valueEnterKey = defaultKey;
     } else {
       _valueEnterKey = selectedKeys.last;
     }
@@ -79,7 +92,8 @@ Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
                         category: categoryKey,
                         data: Data(
                             first: returnDate,
-                            second: double.parse(_yTextFieldController.text)),
+                            second: double.parse(_yTextFieldController.text),
+                            note: _noteTextFieldController.text),
                         delete: true));
           }
         });
@@ -120,7 +134,7 @@ Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
           content: StatefulBuilder(
               builder: (BuildContext context, StateSetter setState) {
             return SizedBox(
-                height: 100,
+                height: 150,
                 child: Column(
                   children: [
                     PopupMenuButton(
@@ -277,7 +291,13 @@ Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
                           controller: _yTextFieldController,
                         )),
                       ],
-                    )
+                    ),
+                    TextField(
+                      decoration: const InputDecoration(labelText: "Note"),
+                      minLines: 2,
+                      maxLines: 6,
+                      controller: _noteTextFieldController,
+                    ),
                   ],
                 ));
           }),

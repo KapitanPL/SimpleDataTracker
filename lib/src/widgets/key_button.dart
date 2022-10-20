@@ -73,7 +73,10 @@ ElevatedButton createKeyButton(
                         state.data[key]!.data.isEmpty
                             ? DateTime.now().getMidnight()
                             : state.data[key]!.data.last.first,
-                        double.parse(lastValueFieldController.text));
+                        double.parse(lastValueFieldController.text),
+                        state.data[key]!.data.isEmpty
+                            ? ""
+                            : state.data[key]!.data.last.note);
                   },
                 )),
             Flexible(

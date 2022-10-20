@@ -19,17 +19,20 @@ class DataAdapter extends TypeAdapter<Data> {
     return Data(
       first: fields[0] as DateTime,
       second: fields[1] as double,
+      note: fields[2] == null ? '' : fields[2] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Data obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(3)
       ..writeByte(0)
       ..write(obj.first)
       ..writeByte(1)
-      ..write(obj.second);
+      ..write(obj.second)
+      ..writeByte(2)
+      ..write(obj.note);
   }
 
   @override
@@ -57,13 +60,14 @@ class DataContainerAdapter extends TypeAdapter<DataContainer> {
       name: fields[1] as String,
       note: fields[2] as String,
       color: fields[3] as Color,
+      isDateOnly: fields[4] == null ? true : fields[4] as bool,
     )..data = (fields[0] as List).cast<Data>();
   }
 
   @override
   void write(BinaryWriter writer, DataContainer obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.data)
       ..writeByte(1)
@@ -71,7 +75,9 @@ class DataContainerAdapter extends TypeAdapter<DataContainer> {
       ..writeByte(2)
       ..write(obj.note)
       ..writeByte(3)
-      ..write(obj.color);
+      ..write(obj.color)
+      ..writeByte(4)
+      ..write(obj.isDateOnly);
   }
 
   @override

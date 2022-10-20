@@ -64,9 +64,10 @@ class MyHomePage extends StatefulWidget {
 }
 
 class DataCacheEntry {
-  DataCacheEntry(this.time, this.value, this.datakey);
+  DataCacheEntry(this.time, this.value, this.datakey, this.note);
   DateTime time;
   double value;
+  String note;
   String datakey;
 }
 
@@ -219,22 +220,25 @@ class DataTrackerState extends State<MyHomePage> {
     });
   }
 
-  void updateData(String key, int index, DateTime date, double value,
+  void updateData(
+      String key, int index, DateTime date, double value, String note,
       {bool deleteValue = false}) {
     assert(data.keys.contains(key));
     assert(data[key]!.data.length >= index && index >= 0);
     setState(() {
       if (data[key]!.data.isEmpty && index == 0) {
-        data[key]!.data.add(Data(first: date, second: value));
+        data[key]!.data.add(Data(first: date, second: value, note: note));
       } else {
         if (deleteValue) {
           data[key]!.data.removeAt(index);
         } else {
           if (data[key]!.data[index].first == date) {
             data[key]!.data[index].second = value;
+            data[key]!.data[index].note = note;
           } else {
             data[key]!.data[index].first = date;
             data[key]!.data[index].second = value;
+            data[key]!.data[index].note = note;
             data[key]!.data.sort(((a, b) => a.first.compareTo(b.first)));
           }
         }
@@ -400,7 +404,8 @@ class DataTrackerState extends State<MyHomePage> {
           dataCache[dataKey] = [];
         }
         for (var dt in data[dataKey]!.data) {
-          dataCache[dataKey]!.add(DataCacheEntry(dt.first, dt.second, dataKey));
+          dataCache[dataKey]!
+              .add(DataCacheEntry(dt.first, dt.second, dataKey, dt.note));
         }
       }
       if (keysToRemove.isNotEmpty) {
@@ -430,12 +435,17 @@ class DataTrackerState extends State<MyHomePage> {
           var index = pointInteractionDetails.pointIndex!;
           var originalTime = dataCache[dataKey]![index].time;
           var originalValue = dataCache[dataKey]![index].value;
+          var originalNote = dataCache[dataKey]![index].note;
           showDataInputDialog(context, data, selectedKeys,
-                  date: originalTime, value: originalValue, enableDelete: true)
+                  date: originalTime,
+                  value: originalValue,
+                  note: originalNote,
+                  defaultKey: dataKey,
+                  enableDelete: true)
               .then((newValues) {
             if (newValues != null) {
-              updateData(
-                  dataKey, index, newValues.data.first, newValues.data.second,
+              updateData(dataKey, index, newValues.data.first,
+                  newValues.data.second, newValues.data.note,
                   deleteValue: newValues.delete);
             }
           });

@@ -16,13 +16,16 @@ class ColorAdapter extends TypeAdapter<Color> {
 
 @HiveType(typeId: 1)
 class Data extends HiveObject {
-  Data({required this.first, required this.second});
+  Data({required this.first, required this.second, this.note = ""});
 
   @HiveField(0)
   DateTime first = DateTime.now();
 
   @HiveField(1)
   double second = .0;
+
+  @HiveField(2, defaultValue: "")
+  String note;
 }
 
 class DataDialogReturn {
@@ -35,7 +38,11 @@ class DataDialogReturn {
 
 @HiveType(typeId: 2)
 class DataContainer {
-  DataContainer({required this.name, required this.note, required this.color});
+  DataContainer(
+      {required this.name,
+      required this.note,
+      required this.color,
+      this.isDateOnly = true});
 
   @HiveField(0)
   List<Data> data = [];
@@ -48,4 +55,7 @@ class DataContainer {
 
   @HiveField(3)
   Color color;
+
+  @HiveField(4, defaultValue: true)
+  bool isDateOnly;
 }
