@@ -61,13 +61,15 @@ class DataContainerAdapter extends TypeAdapter<DataContainer> {
       note: fields[2] as String,
       color: fields[3] as Color,
       isDateOnly: fields[4] == null ? true : fields[4] as bool,
-    )..data = (fields[0] as List).cast<Data>();
+    )
+      ..data = (fields[0] as List).cast<Data>()
+      ..isFavourite = fields[5] == null ? false : fields[5] as bool;
   }
 
   @override
   void write(BinaryWriter writer, DataContainer obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.data)
       ..writeByte(1)
@@ -77,7 +79,9 @@ class DataContainerAdapter extends TypeAdapter<DataContainer> {
       ..writeByte(3)
       ..write(obj.color)
       ..writeByte(4)
-      ..write(obj.isDateOnly);
+      ..write(obj.isDateOnly)
+      ..writeByte(5)
+      ..write(obj.isFavourite);
   }
 
   @override

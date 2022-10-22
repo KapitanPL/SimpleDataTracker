@@ -42,7 +42,8 @@ class DataContainer {
       {required this.name,
       required this.note,
       required this.color,
-      this.isDateOnly = true});
+      this.isDateOnly = true,
+      this.isFavourite = false});
 
   @HiveField(0)
   List<Data> data = [];
@@ -58,4 +59,7 @@ class DataContainer {
 
   @HiveField(4, defaultValue: true)
   bool isDateOnly;
+
+  @HiveField(5, defaultValue: false)
+  bool isFavourite;
 }

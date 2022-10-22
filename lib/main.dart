@@ -154,15 +154,15 @@ class DataTrackerState extends State<MyHomePage> {
 
   Future<void> loadSettings() async {
     var box = await Hive.openBox('settings');
-    selectedKeys = getSettingValue(hiveKeyselectedItem, box, []);
+    selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
     _splitterWeights =
         getSettingValue(hiveKeySplitterWeights, box, _splitterWeights);
 
     // chart zoom
     _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
-    _xMax = getSettingValue(hiveKeyxMax, box, _xMax);
+    _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
     _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
-    _yMax = getSettingValue(hiveKeyyMax, box, _yMax);
+    _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
   }
 
   Future<void> saveSettings(String key, dynamic value) async {
@@ -266,7 +266,8 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   void editKey(key) async {
-    editSeries(context, data, defaultValue: data[key]).then((value) {
+    EditSeriesDialog.show(context, data, isFree, defaultValue: data[key])
+        .then((value) {
       if (value != null) {
         setState(() {
           if (key != value.name) {
@@ -278,6 +279,8 @@ class DataTrackerState extends State<MyHomePage> {
           data[key]!.color = value.color;
           data[key]!.name = value.name;
           data[key]!.note = value.note;
+          data[key]!.isDateOnly = value.isDateOnly;
+          data[key]!.isFavourite = value.isFavourite;
           reloadDataCache = true;
           saveData();
         });
@@ -298,7 +301,17 @@ class DataTrackerState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     List<Widget> dataLabels = [];
+    List<String> favouriteKeys = [];
     for (var key in data.keys) {
+      if (data[key]!.isFavourite) {
+        favouriteKeys.add(key);
+        dataLabels.add(createKeyButton(key, context, this));
+      }
+    }
+    for (var key in data.keys) {
+      if (favouriteKeys.contains(key)) {
+        continue;
+      }
       dataLabels.add(createKeyButton(key, context, this));
     }
     var activeWidget =
@@ -352,7 +365,7 @@ class DataTrackerState extends State<MyHomePage> {
                     "You can have a maximum of 5 labels in the free version.");
                 return;
               }
-              editSeries(context, data).then((value) => {
+              EditSeriesDialog.show(context, data, isFree).then((value) => {
                     if (value != null) {_addKey(value)}
                   });
             },
@@ -362,6 +375,9 @@ class DataTrackerState extends State<MyHomePage> {
                 : Transform.scale(
                     scaleX: -1, child: const Icon(Icons.play_arrow_sharp)),
           ),
+          const SizedBox(
+            height: 10,
+          )
         ]);
       }
       floatingButtons.addAll([
@@ -452,12 +468,18 @@ class DataTrackerState extends State<MyHomePage> {
         },
       ));
     }
+    DateTimeAxis xAxis = (_xMax == _xMin)
+        ? DateTimeAxis(dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY))
+        : DateTimeAxis(
+            dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY),
+            visibleMinimum: _xMin,
+            visibleMaximum: _xMax);
+    NumericAxis yAxis = (_yMax == _yMin)
+        ? NumericAxis()
+        : NumericAxis(visibleMinimum: _yMin, visibleMaximum: _yMax);
     return SfCartesianChart(
-      primaryXAxis: DateTimeAxis(
-          dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY),
-          visibleMinimum: _xMin,
-          visibleMaximum: _xMax),
-      primaryYAxis: NumericAxis(visibleMinimum: _yMin, visibleMaximum: _yMax),
+      primaryXAxis: xAxis,
+      primaryYAxis: yAxis,
       series: series,
       zoomPanBehavior: ZoomPanBehavior(
         enableMouseWheelZooming: true,

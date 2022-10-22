@@ -17,7 +17,7 @@ import 'package:datatracker/src/utils/time_utils.dart';
 class DataInputDialog extends AlertDialog {
   static final _yTextFieldController = TextEditingController();
   static final _noteTextFieldController = TextEditingController();
-  static const List<PopupMenuItem> timeKeys = [
+  static const List<PopupMenuItem> dateKeys = [
     PopupMenuItem(
       value: 0,
       child: Text("Today"),
@@ -25,6 +25,16 @@ class DataInputDialog extends AlertDialog {
     PopupMenuItem(
       value: 1,
       child: Text("Yesterday"),
+    ),
+    PopupMenuItem(
+      value: 2,
+      child: Text("Other"),
+    ),
+  ];
+  static const List<PopupMenuItem> timeKeys = [
+    PopupMenuItem(
+      value: 0,
+      child: Text("Now"),
     ),
     PopupMenuItem(
       value: 2,
@@ -44,7 +54,7 @@ class DataInputDialog extends AlertDialog {
       StateSetter setState) {
     List<Widget> children = [];
     children.add(getKeysPopupButton(keys, data, setState, defaultKey));
-    children.add(getDataInputWidget(context, setState));
+    children.add(getDataInputWidget(context, setState, data));
     children.add(getNoteEdit());
     return children;
   }
@@ -58,21 +68,23 @@ class DataInputDialog extends AlertDialog {
     );
   }
 
-  static Widget getDataInputWidget(BuildContext context, StateSetter setState) {
+  static Widget getDataInputWidget(BuildContext context, StateSetter setState,
+      Map<String, DataContainer> data) {
+    bool isTimeAndDate = !data[_valueEnterKey]!.isDateOnly;
     return Row(
       children: [
         Expanded(
             child: PopupMenuButton(
           position: PopupMenuPosition.under,
           iconSize: 15,
-          itemBuilder: (BuildContext context) => timeKeys,
+          itemBuilder: (BuildContext context) =>
+              isTimeAndDate ? timeKeys : dateKeys,
           onSelected: (item) {
-            //_timeValueText = (timeKeys[item.hashCode].child as Text).data!;
             switch (item.hashCode) {
               case 0:
                 {
                   var now = DateTime.now();
-                  returnDate = now.getMidnight();
+                  returnDate = isTimeAndDate ? now : now.getMidnight();
                   setState(() {
                     _timeValueText =
                         DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(now);
@@ -101,9 +113,10 @@ class DataInputDialog extends AlertDialog {
                             const Key("DateTimeDialog"), context);
                       }).then((value) {
                     setState(() {
-                      value as DateTimeDialogReturn;
-                      returnDate = value.dateTime;
-                      _timeValueText = value.timeValueText;
+                      if (value is DateTimeDialogReturn) {
+                        returnDate = value.dateTime;
+                        _timeValueText = value.timeValueText;
+                      }
                     });
                   });
                   break;
@@ -285,8 +298,10 @@ Future<DataDialogReturn?> showDataInputDialog(BuildContext context,
       DataInputDialog._valueEnterKey = selectedKeys.last;
     }
   }
+  bool isTimeAndDate = !data[DataInputDialog._valueEnterKey]!.isDateOnly;
+  String defaultText = isTimeAndDate ? "Now" : "Today";
   DataInputDialog._timeValueText = date == null
-      ? "Today"
+      ? defaultText
       : DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(date);
   return showDialog(
       context: context,

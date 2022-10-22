@@ -15,10 +15,8 @@ class DateTimeDialog extends AlertDialog {
   static double smallerSide = 100;
   static DateTime localDateValue = DateTime.now();
 
-  DateTimeDialog(
-    Key? key,
-    BuildContext context,
-  ) : super(
+  DateTimeDialog(Key? key, BuildContext context, bool isTimeAndDate)
+      : super(
             key: key,
             title: const Text(''),
             content: SizedBox(
@@ -42,6 +40,15 @@ class DateTimeDialog extends AlertDialog {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       ElevatedButton(
+                        child: const Text("Cancel"),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                      ),
+                      const SizedBox(
+                        width: 15,
+                      ),
+                      ElevatedButton(
                         child: const Text("OK"),
                         onPressed: () {
                           var theDate = DateTime(localDateValue.year,
@@ -54,12 +61,6 @@ class DateTimeDialog extends AlertDialog {
                                       .format(theDate)));
                         },
                       ),
-                      ElevatedButton(
-                        child: const Text("Cancel"),
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                      )
                     ],
                   )
                 ],
