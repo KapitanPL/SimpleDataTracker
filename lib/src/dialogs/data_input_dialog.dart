@@ -1,6 +1,7 @@
 import 'dart:math';
 
-import 'package:datatracker/src/dialogs/pick_date_tame.dart';
+//import 'package:datatracker/src/dialogs/pick_date_tame.dart';
+import 'package:omni_datetime_picker/omni_datetime_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'package:intl/intl.dart';
@@ -10,7 +11,6 @@ import 'package:datatracker/src/dataRecord/data.dart';
 import 'package:datatracker/src/widgets/custom_popup_menu_item.dart';
 import 'package:datatracker/src/utils/contrast_color.dart';
 import 'package:datatracker/src/dialogs/yes_no_question.dart';
-import 'package:datatracker/src/dialogs/data_input_dialog.dart';
 
 import 'package:datatracker/src/utils/time_utils.dart';
 
@@ -104,7 +104,28 @@ class DataInputDialog extends AlertDialog {
                 }
               case 2:
                 {
-                  DateTimeDialog.smallerSide = smallerSide;
+                  showOmniDateTimePicker(
+                          context: context,
+                          type: isTimeAndDate
+                              ? OmniDateTimePickerType.dateAndTime
+                              : OmniDateTimePickerType.date)
+                      .then((value) {
+                    if (value != null) {
+                      setState(() {
+                        returnDate =
+                            isTimeAndDate ? value : value.getMidnight();
+                        _timeValueText =
+                            DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY)
+                                .format(value);
+                        if (isTimeAndDate) {
+                          _timeValueText += " ";
+                          _timeValueText +=
+                              DateFormat(DateFormat.HOUR_MINUTE).format(value);
+                        }
+                      });
+                    }
+                  });
+                  /*DateTimeDialog.smallerSide = smallerSide;
                   DateTimeDialog.localDateValue = DateTime.now();
                   showDialog(
                       context: context,
@@ -118,7 +139,7 @@ class DataInputDialog extends AlertDialog {
                         _timeValueText = value.timeValueText;
                       }
                     });
-                  });
+                  });*/
                   break;
                 }
             }
