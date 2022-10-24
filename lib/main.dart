@@ -27,8 +27,6 @@ const String hiveKeyxMax = "xMax";
 const String hiveKeyyMin = "yMin";
 const String hiveKeyyMax = "yMax";
 
-const double dayInMiliseconds = 24 * 60 * 60 * 1000;
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   var directory = await getApplicationSupportDirectory(); //? Or some better
@@ -266,7 +264,7 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   void editKey(key) async {
-    EditSeriesDialog.show(context, data, isFree, defaultValue: data[key])
+    EditSeriesDialog.show(context, data, isFree, this, defaultValue: data[key])
         .then((value) {
       if (value != null) {
         setState(() {
@@ -365,15 +363,15 @@ class DataTrackerState extends State<MyHomePage> {
                     "You can have a maximum of 5 labels in the free version.");
                 return;
               }
-              EditSeriesDialog.show(context, data, isFree).then((value) => {
-                    if (value != null) {_addKey(value)}
-                  });
+              EditSeriesDialog.show(context, data, isFree, this)
+                  .then((value) => {
+                        if (value != null) {_addKey(value)}
+                      });
             },
             mini: true,
             child: expandedMenu
                 ? const Icon(Icons.add_chart)
-                : Transform.scale(
-                    scaleX: -1, child: const Icon(Icons.play_arrow_sharp)),
+                : const Icon(Icons.arrow_back_ios_sharp),
           ),
           const SizedBox(
             height: 10,
@@ -389,9 +387,8 @@ class DataTrackerState extends State<MyHomePage> {
           tooltip: expandedMenu ? "Close actions" : "Open actions",
           mini: true,
           child: expandedMenu
-              ? const Icon(Icons.play_arrow_sharp)
-              : Transform.scale(
-                  scaleX: -1, child: const Icon(Icons.play_arrow_sharp)),
+              ? const Icon(Icons.arrow_forward_ios_sharp)
+              : const Icon(Icons.arrow_back_ios_sharp),
         ),
         const SizedBox(height: 15),
         FloatingActionButton(
@@ -468,10 +465,21 @@ class DataTrackerState extends State<MyHomePage> {
         },
       ));
     }
+    bool displayTime = false;
+    for (var key in selectedKeys) {
+      if (!data[key]!.isDateOnly) {
+        displayTime = true;
+        break;
+      }
+    }
+    String dateFormat = DateFormat.YEAR_ABBR_MONTH_DAY;
+    if (displayTime) {
+      dateFormat = "y-M-d H:m";
+    }
     DateTimeAxis xAxis = (_xMax == _xMin)
-        ? DateTimeAxis(dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY))
+        ? DateTimeAxis(dateFormat: DateFormat(dateFormat))
         : DateTimeAxis(
-            dateFormat: DateFormat(DateFormat.YEAR_ABBR_MONTH_DAY),
+            dateFormat: DateFormat(dateFormat),
             visibleMinimum: _xMin,
             visibleMaximum: _xMax);
     NumericAxis yAxis = (_yMax == _yMin)

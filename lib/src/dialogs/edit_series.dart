@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_circle_color_picker/flutter_circle_color_picker.dart';
+import 'package:intl/intl.dart';
 
+import 'package:datatracker/main.dart';
 import 'package:datatracker/src/dataRecord/data.dart';
 import 'package:datatracker/src/dialogs/frea_app_waring.dart';
+import 'package:datatracker/src/dialogs/data_input_dialog.dart';
 
 class EditSeriesDialog extends AlertDialog {
   static final _textFieldController = TextEditingController();
@@ -14,12 +17,13 @@ class EditSeriesDialog extends AlertDialog {
   static bool _isFavourite = false;
   static bool _isDateOnly = true;
   static bool _isFree = false;
+  static bool _showTable = false;
 
   static const int _maxFreeFavouriteCount = 2;
   static const int _maxFreeDateAndTimeCount = 2;
   static late BuildContext _context;
 
-  EditSeriesDialog(Map<String, DataContainer> data,
+  EditSeriesDialog(Map<String, DataContainer> data, DataTrackerState mainState,
       {DataContainer? defaultValue})
       : super(
           content: StatefulBuilder(
@@ -27,35 +31,9 @@ class EditSeriesDialog extends AlertDialog {
             return SizedBox(
                 child: SingleChildScrollView(
                     scrollDirection: Axis.vertical,
-                    child: Column(children: [
-                      getOptionsBar(setState, data),
-                      TextField(
-                        decoration: InputDecoration(
-                          labelText: (defaultValue != null)
-                              ? "Data series name"
-                              : 'New data series:',
-                          errorText: (defaultValue != null &&
-                                  _textFieldController.text ==
-                                      defaultValue.name)
-                              ? ""
-                              : _errorKeyText(data),
-                        ),
-                        controller: _textFieldController,
-                        onChanged: ((value) {
-                          setState(() {});
-                        }),
-                      ),
-                      CircleColorPicker(
-                        controller: _colorController,
-                      ),
-                      TextField(
-                        minLines: 1,
-                        maxLines: 4,
-                        decoration:
-                            const InputDecoration(labelText: "Description"),
-                        controller: _descriptionFieldController,
-                      )
-                    ])));
+                    child: Column(
+                        children: getChildren(data, setState, mainState,
+                            defaultValue: defaultValue))));
           }),
           actions: <Widget>[
             ElevatedButton(
@@ -77,6 +55,116 @@ class EditSeriesDialog extends AlertDialog {
             ),
           ],
         );
+
+  static List<Widget> getChildren(Map<String, DataContainer> data,
+      StateSetter setState, DataTrackerState mainState,
+      {DataContainer? defaultValue}) {
+    List<Widget> children = [];
+    children.add(getOptionsBar(setState, data, defaultValue));
+    if (_showTable) {
+      String dateFormat = DateFormat.YEAR_ABBR_MONTH_DAY;
+      if (!_isDateOnly) {
+        dateFormat = "y-M-d H:m";
+      }
+      children.add(DataTable(
+          showCheckboxColumn: false,
+          columns: <DataColumn>[
+            DataColumn(
+              label: Expanded(
+                child: Text(
+                  (_isDateOnly ? 'Date' : 'Date and Time'),
+                  style: const TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ),
+            ),
+            DataColumn(
+              label: Expanded(
+                child: Text(
+                  defaultValue!.name,
+                  style: const TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ),
+            ),
+            const DataColumn(
+              label: Expanded(
+                child: Text(
+                  'Note',
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ),
+            ),
+          ],
+          rows: List<DataRow>.generate(
+              defaultValue.data.length,
+              (int index) => DataRow(
+                  color: MaterialStateProperty.resolveWith<Color?>(
+                      (Set<MaterialState> states) {
+                    // Even rows will have a grey color.
+                    if (index.isEven) {
+                      return Colors.teal[50];
+                    }
+                    return Colors.yellow[
+                        50]; // Use default value for other states and odd rows.
+                  }),
+                  cells: <DataCell>[
+                    DataCell(Text(DateFormat(dateFormat)
+                        .format(defaultValue.data[index].first))),
+                    DataCell(Center(
+                        child:
+                            Text(defaultValue.data[index].second.toString()))),
+                    DataCell(Text(defaultValue.data[index].note))
+                  ],
+                  onSelectChanged: (value) {
+                    showDataInputDialog(_context, data, [],
+                            date: defaultValue.data[index].first,
+                            value: defaultValue.data[index].second,
+                            note: defaultValue.data[index].note,
+                            defaultKey: defaultValue.name,
+                            enableDelete: true)
+                        .then((newValues) {
+                      if (newValues != null) {
+                        setState(() {
+                          mainState.updateData(
+                              defaultValue.name,
+                              index,
+                              newValues.data.first,
+                              newValues.data.second,
+                              newValues.data.note,
+                              deleteValue: newValues.delete);
+                        });
+                      }
+                    });
+                  }))));
+    } else {
+      children.addAll([
+        TextField(
+          decoration: InputDecoration(
+            labelText: (defaultValue != null)
+                ? "Data series name"
+                : 'New data series:',
+            errorText: (defaultValue != null &&
+                    _textFieldController.text == defaultValue.name)
+                ? ""
+                : _errorKeyText(data),
+          ),
+          controller: _textFieldController,
+          onChanged: ((value) {
+            setState(() {});
+          }),
+        ),
+        CircleColorPicker(
+          controller: _colorController,
+        ),
+        TextField(
+          minLines: 1,
+          maxLines: 4,
+          decoration: const InputDecoration(labelText: "Description"),
+          controller: _descriptionFieldController,
+        )
+      ]);
+    }
+    return children;
+  }
 
   static String? _errorKeyText(Map<String, DataContainer> data) {
     // at any time, we can get the text from _controller.value.text
@@ -140,36 +228,48 @@ class EditSeriesDialog extends AlertDialog {
     return true;
   }
 
-  static Widget getOptionsBar(
-      StateSetter setState, Map<String, DataContainer> data) {
-    return Wrap(
-      children: [
-        optionButton(() {
-          setState(() {
-            if (_isFavourite || checkFavouriteCount(data)) {
-              _isFavourite = !_isFavourite;
-            } else {
-              freeAppWarning(_context,
-                  "You can have a maximmum of 3 favourite data sets in free version.");
-            }
-          });
-        }, Icons.star, "Favourite", Colors.amber, _isFavourite),
-        optionButton(() {
-          setState(() {
-            if (!_isDateOnly || checkDateAndTimeCount(data)) {
-              _isDateOnly = !_isDateOnly;
-            } else {
-              freeAppWarning(_context,
-                  "You can have a maximmum of 3 Date and Time data sets in free version.");
-            }
-          });
-        }, Icons.access_time, "Date and Time", Colors.lightBlue, !_isDateOnly)
-      ],
-    );
+  static Widget getOptionsBar(StateSetter setState,
+      Map<String, DataContainer> data, DataContainer? defaultValue) {
+    List<Widget> children = [
+      optionButton(() {
+        setState(() {
+          if (_isFavourite || checkFavouriteCount(data)) {
+            _isFavourite = !_isFavourite;
+          } else {
+            freeAppWarning(_context,
+                "You can have a maximmum of 3 favourite data sets in free version.");
+          }
+        });
+      }, Icons.star, "Favourite", Colors.amber, _isFavourite),
+      optionButton(() {
+        setState(() {
+          if (!_isDateOnly || checkDateAndTimeCount(data)) {
+            _isDateOnly = !_isDateOnly;
+          } else {
+            freeAppWarning(_context,
+                "You can have a maximmum of 3 Date and Time data sets in free version.");
+          }
+        });
+      }, Icons.access_time, "Date and Time", Colors.lightBlue, !_isDateOnly),
+    ];
+    if (defaultValue != null) {
+      children.add(optionButton(() {
+        setState(() {
+          _showTable = !_showTable;
+        });
+      },
+          _showTable
+              ? Icons.arrow_back_ios_sharp
+              : Icons.arrow_forward_ios_sharp,
+          _showTable ? "Back" : "Data Table",
+          Colors.green,
+          _showTable));
+    }
+    return Wrap(children: children);
   }
 
-  static Future<DataContainer?> show(
-      BuildContext context, Map<String, DataContainer> data, bool isFree,
+  static Future<DataContainer?> show(BuildContext context,
+      Map<String, DataContainer> data, bool isFree, DataTrackerState mainState,
       {DataContainer? defaultValue}) async {
     if (defaultValue != null) {
       _textFieldController.text = defaultValue.name;
@@ -189,6 +289,7 @@ class EditSeriesDialog extends AlertDialog {
         builder: (context) {
           return EditSeriesDialog(
             data,
+            mainState,
             defaultValue: defaultValue,
           );
         });

@@ -1,6 +1,5 @@
 import 'dart:math';
 
-//import 'package:datatracker/src/dialogs/pick_date_tame.dart';
 import 'package:omni_datetime_picker/omni_datetime_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -125,21 +124,6 @@ class DataInputDialog extends AlertDialog {
                       });
                     }
                   });
-                  /*DateTimeDialog.smallerSide = smallerSide;
-                  DateTimeDialog.localDateValue = DateTime.now();
-                  showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return DateTimeDialog(
-                            const Key("DateTimeDialog"), context);
-                      }).then((value) {
-                    setState(() {
-                      if (value is DateTimeDialogReturn) {
-                        returnDate = value.dateTime;
-                        _timeValueText = value.timeValueText;
-                      }
-                    });
-                  });*/
                   break;
                 }
             }
