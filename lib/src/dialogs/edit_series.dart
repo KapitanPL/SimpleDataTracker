@@ -40,21 +40,25 @@ class EditSeriesDialog extends AlertDialog {
               child: const Text("Cancel"),
               onPressed: () => Navigator.pop(_context),
             ),
-            ElevatedButton(
-              onPressed: _textFieldController.value.text.isNotEmpty
-                  ? () => Navigator.pop(
-                      _context,
-                      DataContainer(
-                          name: _textFieldController.text,
-                          color: _colorController.color,
-                          note: _descriptionFieldController.text,
-                          isDateOnly: _isDateOnly,
-                          isFavourite: _isFavourite))
-                  : null,
-              child: const Text('OK'),
+            const ElevatedButton(
+              onPressed: onOkPressed,
+              child: Text('OK'),
             ),
           ],
         );
+
+  static void onOkPressed() {
+    _textFieldController.value.text.isNotEmpty
+        ? Navigator.pop(
+            _context,
+            DataContainer(
+                name: _textFieldController.text,
+                color: _colorController.color,
+                note: _descriptionFieldController.text,
+                isDateOnly: _isDateOnly,
+                isFavourite: _isFavourite))
+        : Navigator.pop(_context);
+  }
 
   static List<Widget> getChildren(Map<String, DataContainer> data,
       StateSetter setState, DataTrackerState mainState,
@@ -183,18 +187,22 @@ class EditSeriesDialog extends AlertDialog {
 
   static ElevatedButton optionButton(VoidCallback? onPressed, IconData icon,
       String label, MaterialColor activeColor, bool isActive) {
-    return ElevatedButton.icon(
+    return ElevatedButton(
       onPressed: onPressed,
-      icon: Icon(
-        icon,
-        color: isActive ? activeColor : Colors.grey,
-      ),
-      label: Text(
-        label,
-        style: TextStyle(color: isActive ? activeColor : Colors.grey),
-      ),
       style: ElevatedButton.styleFrom(
           primary: Colors.transparent, shadowColor: Colors.transparent),
+      child: Column(children: [
+        Icon(
+          icon,
+          color: isActive ? activeColor : Colors.grey,
+          size: 30,
+        ),
+        Text(
+          label,
+          style: TextStyle(
+              color: isActive ? activeColor : Colors.grey, fontSize: 10),
+        ),
+      ]),
     );
   }
 
@@ -250,7 +258,7 @@ class EditSeriesDialog extends AlertDialog {
                 "You can have a maximmum of 3 Date and Time data sets in free version.");
           }
         });
-      }, Icons.access_time, "Date and Time", Colors.lightBlue, !_isDateOnly),
+      }, Icons.access_time, "Use Time", Colors.lightBlue, !_isDateOnly),
     ];
     if (defaultValue != null) {
       children.add(optionButton(() {
@@ -261,7 +269,7 @@ class EditSeriesDialog extends AlertDialog {
           _showTable
               ? Icons.arrow_back_ios_sharp
               : Icons.arrow_forward_ios_sharp,
-          _showTable ? "Back" : "Data Table",
+          _showTable ? "Back" : "Table",
           Colors.green,
           _showTable));
     }

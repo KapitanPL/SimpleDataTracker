@@ -72,7 +72,7 @@ class DataCacheEntry {
 class DataTrackerState extends State<MyHomePage> {
   Map<String, DataContainer> data = {};
   List<String> selectedKeys = [];
-  List<double> _splitterWeights = [0.1, 0.9];
+  List<double> _splitterWeights = [0.0, 1];
 
   Map<String, List<DataCacheEntry>> dataCache = {};
   bool reloadDataCache = false;
@@ -392,7 +392,7 @@ class DataTrackerState extends State<MyHomePage> {
         ),
         const SizedBox(height: 15),
         FloatingActionButton(
-          onPressed: _addNewRecord,
+          onPressed: onAddPressed,
           tooltip: "Add new data to data series",
           child: const Icon(Icons.add),
         ),
@@ -402,6 +402,23 @@ class DataTrackerState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.end, children: floatingButtons);
     }
     return null;
+  }
+
+  void onAddPressed() {
+    if (data.isEmpty) {
+      EditSeriesDialog.show(context, data, isFree, this).then((value) => {
+            if (value != null)
+              {
+                _addKey(value),
+                setState(() {
+                  _splitterWeights = [0.05, 0.95];
+                  saveSettings(hiveKeySplitterWeights, _splitterWeights);
+                })
+              }
+          });
+    } else {
+      _addNewRecord();
+    }
   }
 
   void updateDataCache() {
