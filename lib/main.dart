@@ -1,11 +1,16 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:collection/collection.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:split_view/split_view.dart';
 import 'package:intl/intl.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:social_share/social_share.dart';
 
 import 'src/dataRecord/data.dart';
 import 'src/widgets/key_button.dart';
@@ -26,6 +31,8 @@ const String hiveKeyxMin = "xMin";
 const String hiveKeyxMax = "xMax";
 const String hiveKeyyMin = "yMin";
 const String hiveKeyyMax = "yMax";
+
+const String hiveKeyLastShare = "lastShare";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,6 +90,13 @@ class DataTrackerState extends State<MyHomePage> {
   DateTime _xMax = DateTime.now();
   double _yMin = .0;
   double _yMax = .0;
+
+  bool _rightHanded = true;
+
+  DateTime _lastShare = DateTime.now().subtract(const Duration(days: 60));
+  static const Duration _freeShareDuration = Duration(days: 30);
+
+  final ScreenshotController _screenshotController = ScreenshotController();
 
   DataTrackerState() {
     loadSettings();
@@ -161,6 +175,8 @@ class DataTrackerState extends State<MyHomePage> {
     _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
     _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
     _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
+
+    _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
   }
 
   Future<void> saveSettings(String key, dynamic value) async {
@@ -315,39 +331,133 @@ class DataTrackerState extends State<MyHomePage> {
     var activeWidget =
         dataLoaded ? getChart() : const CircularProgressIndicator();
     return Scaffold(
-      body: SplitView(
-        viewMode: SplitViewMode.Vertical,
-        controller: SplitViewController(limits: [
-          WeightLimit(min: 0.05, max: 0.35),
-          WeightLimit(min: 0.65, max: 0.95)
-        ], weights: _splitterWeights),
-        onWeightChanged: (weightList) {
-          _splitterWeights.clear();
-          for (var weight in weightList) {
-            if (weight != null) {
-              _splitterWeights.add(weight);
-            }
-          }
-          saveListSettings(hiveKeySplitterWeights, _splitterWeights);
-        },
-        children: [
-          SizedBox(
-              height: 50,
-              child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: Column(children: <Widget>[
-                    SizedBox(height: MediaQuery.of(context).viewPadding.top),
-                    Wrap(
-                      alignment: WrapAlignment.start,
-                      spacing: 3,
-                      children: dataLabels,
-                    )
-                  ]))),
-          activeWidget,
-        ],
-      ),
+      body: Screenshot(
+          controller: _screenshotController,
+          child: Stack(children: [
+            Container(
+              color: Colors.amber.shade50,
+            ),
+            SplitView(
+              viewMode: SplitViewMode.Vertical,
+              controller: SplitViewController(limits: [
+                WeightLimit(min: 0.05, max: 0.35),
+                WeightLimit(min: 0.65, max: 0.95)
+              ], weights: _splitterWeights),
+              onWeightChanged: (weightList) {
+                _splitterWeights.clear();
+                for (var weight in weightList) {
+                  if (weight != null) {
+                    _splitterWeights.add(weight);
+                  }
+                }
+                saveListSettings(hiveKeySplitterWeights, _splitterWeights);
+              },
+              children: [
+                SizedBox(
+                    height: 50,
+                    child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: Column(children: <Widget>[
+                          SizedBox(
+                              height: MediaQuery.of(context).viewPadding.top),
+                          Wrap(
+                            alignment: WrapAlignment.start,
+                            spacing: 3,
+                            children: dataLabels,
+                          )
+                        ]))),
+                activeWidget,
+              ],
+            )
+          ])),
       floatingActionButton: getFloatingActionButton(),
     );
+  }
+
+  void _onShare() async {
+    if (isFree) {
+      Duration shareInterval = DateTime.now().difference(_lastShare);
+      if (shareInterval.compareTo(_freeShareDuration) < 0) {
+        freeAppWarning(context,
+            "Free version allows share only once per 30 days. Next share in ${shareInterval.inDays} day(s)");
+        return;
+      }
+    }
+    final directory = await getApplicationDocumentsDirectory();
+    _screenshotController
+        .captureAndSave(directory.path,
+            fileName: "dataTrackerScreenshot.png",
+            pixelRatio: MediaQuery.of(context).devicePixelRatio)
+        .then((imagePath) async {
+      await SocialShare.shareOptions("Hello world", imagePath: imagePath);
+      _lastShare = DateTime.now();
+      saveSettings(hiveKeyLastShare, _lastShare);
+    });
+  }
+
+  void _onAddSeries() {
+    if (isFree && data.keys.length >= 5) {
+      // limit free app to 5 labels
+      freeAppWarning(
+          context, "You can have a maximum of 5 labels in the free version.");
+      return;
+    }
+    EditSeriesDialog.show(context, data, isFree, this).then((value) => {
+          if (value != null) {_addKey(value)}
+        });
+  }
+
+  double minValueOfData(String key) {
+    assert(data[key]!.data.isNotEmpty);
+    double ret = data[key]!.data.first.second;
+    for (var d in data[key]!.data) {
+      ret = min(ret, d.second);
+    }
+    return ret;
+  }
+
+  double maxValueOfData(String key) {
+    assert(data[key]!.data.isNotEmpty);
+    double ret = data[key]!.data.first.second;
+    for (var d in data[key]!.data) {
+      ret = max(ret, d.second);
+    }
+    return ret;
+  }
+
+  void _onZoomOut() {
+    setState(() {
+      var firstKey = selectedKeys
+          .firstWhereOrNull((element) => data[element]!.data.isNotEmpty);
+      if (firstKey == null) {
+        _xMin = DateTime.now();
+        _xMax = _xMin;
+        _yMin = .0;
+        _yMax = .0;
+        return;
+      } else {
+        _xMin = data[firstKey]!.data.first.first;
+        _xMax = data[firstKey]!.data.last.first;
+        _yMin = minValueOfData(firstKey);
+        _yMax = maxValueOfData(firstKey);
+      }
+      for (var key in selectedKeys) {
+        _xMin = data[key]!.data.first.first.isBefore(_xMin)
+            ? data[key]!.data.first.first
+            : _xMin;
+        _xMax = data[key]!.data.last.first.isAfter(_xMax)
+            ? data[key]!.data.last.first
+            : _xMax;
+        _yMin = min(minValueOfData(key), _yMin);
+        _yMax = max(maxValueOfData(key), _yMax);
+      }
+    });
+  }
+
+  void _onHandSide() {
+    setState(() {
+      _rightHanded = !_rightHanded;
+    });
   }
 
   Widget? getFloatingActionButton() {
@@ -356,26 +466,41 @@ class DataTrackerState extends State<MyHomePage> {
       if (expandedMenu) {
         floatingButtons.addAll([
           FloatingActionButton(
-            onPressed: () {
-              if (isFree && data.keys.length >= 5) {
-                // limit free app to 5 labels
-                freeAppWarning(context,
-                    "You can have a maximum of 5 labels in the free version.");
-                return;
-              }
-              EditSeriesDialog.show(context, data, isFree, this)
-                  .then((value) => {
-                        if (value != null) {_addKey(value)}
-                      });
-            },
+            onPressed: _onHandSide,
+            mini: true,
+            child: Icon(_rightHanded
+                ? Icons.back_hand_outlined
+                : Icons.front_hand_outlined),
+          ),
+          const SizedBox(
+            height: 5,
+          ),
+          FloatingActionButton(
+            onPressed: _onZoomOut,
+            mini: true,
+            child: const Icon(Icons.zoom_out_map),
+          ),
+          const SizedBox(
+            height: 5,
+          ),
+          FloatingActionButton(
+            onPressed: _onShare,
+            mini: true,
+            child: const Icon(Icons.share),
+          ),
+          const SizedBox(
+            height: 5,
+          ),
+          FloatingActionButton(
+            onPressed: _onAddSeries,
             mini: true,
             child: expandedMenu
                 ? const Icon(Icons.add_chart)
                 : const Icon(Icons.arrow_back_ios_sharp),
           ),
           const SizedBox(
-            height: 10,
-          )
+            height: 5,
+          ),
         ]);
       }
       floatingButtons.addAll([
@@ -398,8 +523,18 @@ class DataTrackerState extends State<MyHomePage> {
         ),
         const SizedBox(height: 15),
       ]);
-      return Column(
-          mainAxisAlignment: MainAxisAlignment.end, children: floatingButtons);
+      return Row(
+          mainAxisAlignment:
+              _rightHanded ? MainAxisAlignment.start : MainAxisAlignment.end,
+          children: [
+            const SizedBox(
+              width: 30,
+            ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: floatingButtons,
+            )
+          ]);
     }
     return null;
   }
