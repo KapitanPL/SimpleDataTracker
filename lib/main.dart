@@ -33,6 +33,7 @@ const String hiveKeyyMin = "yMin";
 const String hiveKeyyMax = "yMax";
 
 const String hiveKeyLastShare = "lastShare";
+const String hiveKeyControlsSide = "controlsSide";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -177,6 +178,7 @@ class DataTrackerState extends State<MyHomePage> {
     _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
 
     _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
+    _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
   }
 
   Future<void> saveSettings(String key, dynamic value) async {
@@ -457,10 +459,15 @@ class DataTrackerState extends State<MyHomePage> {
   void _onHandSide() {
     setState(() {
       _rightHanded = !_rightHanded;
+      saveSettings(hiveKeyControlsSide, _rightHanded);
     });
   }
 
   Widget? getFloatingActionButton() {
+    bool expandedMenuSideAware = expandedMenu;
+    if (!_rightHanded) {
+      expandedMenuSideAware = !expandedMenuSideAware;
+    }
     if (dataLoaded) {
       List<Widget> floatingButtons = [];
       if (expandedMenu) {
@@ -469,8 +476,8 @@ class DataTrackerState extends State<MyHomePage> {
             onPressed: _onHandSide,
             mini: true,
             child: Icon(_rightHanded
-                ? Icons.back_hand_outlined
-                : Icons.front_hand_outlined),
+                ? Icons.front_hand_outlined
+                : Icons.back_hand_outlined),
           ),
           const SizedBox(
             height: 5,
@@ -511,7 +518,7 @@ class DataTrackerState extends State<MyHomePage> {
           }),
           tooltip: expandedMenu ? "Close actions" : "Open actions",
           mini: true,
-          child: expandedMenu
+          child: expandedMenuSideAware
               ? const Icon(Icons.arrow_forward_ios_sharp)
               : const Icon(Icons.arrow_back_ios_sharp),
         ),
@@ -525,7 +532,7 @@ class DataTrackerState extends State<MyHomePage> {
       ]);
       return Row(
           mainAxisAlignment:
-              _rightHanded ? MainAxisAlignment.start : MainAxisAlignment.end,
+              _rightHanded ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             const SizedBox(
               width: 30,
