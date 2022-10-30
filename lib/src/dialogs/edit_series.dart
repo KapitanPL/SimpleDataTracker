@@ -26,10 +26,14 @@ class EditSeriesDialog extends AlertDialog {
   EditSeriesDialog(Map<String, DataContainer> data, DataTrackerState mainState,
       {DataContainer? defaultValue})
       : super(
+          insetPadding: const EdgeInsets.fromLTRB(.0, 20.0, .0, 24.0),
           content: StatefulBuilder(
               builder: (BuildContext context, StateSetter setState) {
+            var width = MediaQuery.of(context).size.width;
             return SizedBox(
+                width: width,
                 child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(.0),
                     scrollDirection: Axis.vertical,
                     child: Column(
                         children: getChildren(data, setState, mainState,
@@ -66,11 +70,10 @@ class EditSeriesDialog extends AlertDialog {
     List<Widget> children = [];
     children.add(getOptionsBar(setState, data, defaultValue));
     if (_showTable) {
-      String dateFormat = DateFormat.YEAR_ABBR_MONTH_DAY;
-      if (!_isDateOnly) {
-        dateFormat = "y-M-d H:m";
-      }
+      var dateFormater = DateFormat.yMd();
       children.add(DataTable(
+          columnSpacing: 10,
+          border: TableBorder.all(color: Colors.teal),
           showCheckboxColumn: false,
           columns: <DataColumn>[
             DataColumn(
@@ -111,12 +114,17 @@ class EditSeriesDialog extends AlertDialog {
                         50]; // Use default value for other states and odd rows.
                   }),
                   cells: <DataCell>[
-                    DataCell(Text(DateFormat(dateFormat)
-                        .format(defaultValue.data[index].first))),
+                    DataCell(Text(
+                        dateFormater.format(defaultValue.data[index].first))),
                     DataCell(Center(
                         child:
                             Text(defaultValue.data[index].second.toString()))),
-                    DataCell(Text(defaultValue.data[index].note))
+                    DataCell(SizedBox(
+                        height: 40,
+                        child: Text(
+                          defaultValue.data[index].note,
+                          overflow: TextOverflow.fade,
+                        )))
                   ],
                   onSelectChanged: (value) {
                     showDataInputDialog(_context, data, [],
