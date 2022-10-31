@@ -7,6 +7,13 @@ import 'package:datatracker/main.dart';
 import 'package:datatracker/src/dataRecord/data.dart';
 import 'package:datatracker/src/dialogs/frea_app_waring.dart';
 import 'package:datatracker/src/dialogs/data_input_dialog.dart';
+import 'package:datatracker/src/dialogs/yes_no_question.dart';
+
+class EditSeriesReturn {
+  EditSeriesReturn(this.container, this.delete);
+  DataContainer container;
+  bool delete;
+}
 
 class EditSeriesDialog extends AlertDialog {
   static final _textFieldController = TextEditingController();
@@ -26,41 +33,66 @@ class EditSeriesDialog extends AlertDialog {
   EditSeriesDialog(Map<String, DataContainer> data, DataTrackerState mainState,
       {DataContainer? defaultValue})
       : super(
-          insetPadding: const EdgeInsets.fromLTRB(.0, 20.0, .0, 24.0),
-          content: StatefulBuilder(
-              builder: (BuildContext context, StateSetter setState) {
-            var width = MediaQuery.of(context).size.width;
-            return SizedBox(
-                width: width,
-                child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(.0),
-                    scrollDirection: Axis.vertical,
-                    child: Column(
-                        children: getChildren(data, setState, mainState,
-                            defaultValue: defaultValue))));
-          }),
-          actions: <Widget>[
-            ElevatedButton(
-              child: const Text("Cancel"),
-              onPressed: () => Navigator.pop(_context),
-            ),
-            const ElevatedButton(
-              onPressed: onOkPressed,
-              child: Text('OK'),
-            ),
-          ],
-        );
+            insetPadding: const EdgeInsets.fromLTRB(.0, 20.0, .0, 24.0),
+            content: StatefulBuilder(
+                builder: (BuildContext context, StateSetter setState) {
+              var width = MediaQuery.of(context).size.width;
+              return SizedBox(
+                  width: width,
+                  child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(.0),
+                      scrollDirection: Axis.vertical,
+                      child: Column(
+                          children: getChildren(data, setState, mainState,
+                              defaultValue: defaultValue))));
+            }),
+            actions: getActions(defaultValue));
+
+  static List<Widget> getActions(DataContainer? defaultValue) {
+    List<Widget> actions = [];
+    if (defaultValue != null) {
+      actions.add(ElevatedButton(
+          onPressed: () => onDeletePressed(defaultValue.name),
+          style: ElevatedButton.styleFrom(primary: Colors.red),
+          child: const Text('Delete')));
+    }
+    actions.addAll(<Widget>[
+      ElevatedButton(
+        child: const Text("Cancel"),
+        onPressed: () => Navigator.pop(_context),
+      ),
+      const ElevatedButton(
+        onPressed: onOkPressed,
+        child: Text('OK'),
+      ),
+    ]);
+    return actions;
+  }
+
+  static void onDeletePressed(String deleteKey) {
+    yesNoQuestion(_context, 'Really delete?').then((value) {
+      if (value) {
+        Navigator.pop(
+            _context,
+            EditSeriesReturn(
+                DataContainer(name: deleteKey, note: "", color: Colors.red),
+                true));
+      }
+    });
+  }
 
   static void onOkPressed() {
     _textFieldController.value.text.isNotEmpty
         ? Navigator.pop(
             _context,
-            DataContainer(
-                name: _textFieldController.text,
-                color: _colorController.color,
-                note: _descriptionFieldController.text,
-                isDateOnly: _isDateOnly,
-                isFavourite: _isFavourite))
+            EditSeriesReturn(
+                DataContainer(
+                    name: _textFieldController.text,
+                    color: _colorController.color,
+                    note: _descriptionFieldController.text,
+                    isDateOnly: _isDateOnly,
+                    isFavourite: _isFavourite),
+                false))
         : Navigator.pop(_context);
   }
 
@@ -284,7 +316,7 @@ class EditSeriesDialog extends AlertDialog {
     return Wrap(children: children);
   }
 
-  static Future<DataContainer?> show(BuildContext context,
+  static Future<EditSeriesReturn?> show(BuildContext context,
       Map<String, DataContainer> data, bool isFree, DataTrackerState mainState,
       {DataContainer? defaultValue}) async {
     if (defaultValue != null) {

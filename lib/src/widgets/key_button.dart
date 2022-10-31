@@ -1,4 +1,4 @@
-import 'package:datatracker/src/widgets/context_menu_wrapper.dart';
+import 'package:datatracker/src/widgets/long_press_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,33 +22,12 @@ ElevatedButton createKeyButton(
           elevation: state.selectedKeys.contains(key) ? 10 : 0,
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2)),
       onPressed: () => state.keyValuePressed(key),
-      child: ContextMenuWrapper<int>(
+      child: LongPressWrapper(
         context: context,
         tapCallback: () => state.keyValuePressed(key),
-        items: const <PopupMenuItem<int>>[
-          PopupMenuItem(
-            value: 0,
-            child: Text('Edit'),
-          ),
-          PopupMenuItem(
-            value: 1,
-            child: Text('Delete'),
-          ),
-        ],
-        itemCallback: (item) {
-          switch (item) {
-            case 0: // Edit
-              {
-                state.editKey(key);
-                break;
-              }
-            case 1: //Delete
-              {
-                state.deleteKey(key);
-                break;
-              }
-          }
-        },
+        pressCallback: (() {
+          state.editKey(key);
+        }),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

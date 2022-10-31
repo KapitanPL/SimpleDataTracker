@@ -38,7 +38,9 @@ const String hiveKeyControlsSide = "controlsSide";
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   var directory = await getApplicationSupportDirectory(); //? Or some better
+  print(directory.path);
   Hive
+    // ..init("data/user/0/customFolder")
     ..init(directory.path)
     ..registerAdapter(DataAdapter())
     ..registerAdapter(DataContainerAdapter())
@@ -166,19 +168,20 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   Future<void> loadSettings() async {
-    var box = await Hive.openBox('settings');
-    selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
-    _splitterWeights =
-        getSettingValue(hiveKeySplitterWeights, box, _splitterWeights);
+    Hive.openBox('settings').then((box) {
+      selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
+      _splitterWeights =
+          getSettingValue(hiveKeySplitterWeights, box, _splitterWeights);
 
-    // chart zoom
-    _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
-    _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
-    _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
-    _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
+      // chart zoom
+      _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
+      _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
+      _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
+      _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
 
-    _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
-    _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
+      _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
+      _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
+    });
   }
 
   Future<void> saveSettings(String key, dynamic value) async {
@@ -266,40 +269,43 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   void deleteKey(key) async {
-    yesNoQuestion(context, "Delete $key?").then((value) {
-      if (value) {
-        setState(() {
-          data.remove(key);
-          if (selectedKeys.contains(key)) {
-            selectedKeys.remove(key);
-            saveListSettings(hiveKeyselectedItem, selectedKeys);
-          }
-          reloadDataCache = true;
-          saveData();
-        });
+    setState(() {
+      data.remove(key);
+      if (selectedKeys.contains(key)) {
+        selectedKeys.remove(key);
+        saveListSettings(hiveKeyselectedItem, selectedKeys);
       }
+      reloadDataCache = true;
+      saveData();
     });
   }
 
   void editKey(key) async {
     EditSeriesDialog.show(context, data, isFree, this, defaultValue: data[key])
-        .then((value) {
-      if (value != null) {
-        setState(() {
-          if (key != value.name) {
-            var oldKey = key;
-            data[value.name] = data[key]!;
-            key = value.name;
-            data.remove(oldKey);
-          }
-          data[key]!.color = value.color;
-          data[key]!.name = value.name;
-          data[key]!.note = value.note;
-          data[key]!.isDateOnly = value.isDateOnly;
-          data[key]!.isFavourite = value.isFavourite;
-          reloadDataCache = true;
-          saveData();
-        });
+        .then((seriesReturn) {
+      if (seriesReturn != null) {
+        if (seriesReturn.delete) {
+          setState(() {
+            deleteKey(seriesReturn.container.name);
+          });
+        } else {
+          var value = seriesReturn.container;
+          setState(() {
+            if (key != value.name) {
+              var oldKey = key;
+              data[value.name] = data[key]!;
+              key = value.name;
+              data.remove(oldKey);
+            }
+            data[key]!.color = value.color;
+            data[key]!.name = value.name;
+            data[key]!.note = value.note;
+            data[key]!.isDateOnly = value.isDateOnly;
+            data[key]!.isFavourite = value.isFavourite;
+            reloadDataCache = true;
+            saveData();
+          });
+        }
       }
     });
   }
@@ -405,7 +411,7 @@ class DataTrackerState extends State<MyHomePage> {
       return;
     }
     EditSeriesDialog.show(context, data, isFree, this).then((value) => {
-          if (value != null) {_addKey(value)}
+          if (value != null) {_addKey(value.container)}
         });
   }
 
@@ -551,7 +557,7 @@ class DataTrackerState extends State<MyHomePage> {
       EditSeriesDialog.show(context, data, isFree, this).then((value) => {
             if (value != null)
               {
-                _addKey(value),
+                _addKey(value.container),
                 setState(() {
                   _splitterWeights = [0.05, 0.95];
                   saveSettings(hiveKeySplitterWeights, _splitterWeights);
