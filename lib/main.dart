@@ -23,7 +23,7 @@ import 'src/dialogs/yes_no_question.dart';
 
 typedef CallbackFunction = void Function();
 
-const bool isFree = true;
+const bool isFree = false;
 
 const String hiveKeyselectedItem = "selectedItem";
 const String hiveKeySplitterWeights = "splitterWeights";
@@ -83,7 +83,6 @@ class DataCacheEntry {
 class DataTrackerState extends State<MyHomePage> {
   Map<String, DataContainer> data = {};
   List<String> selectedKeys = [];
-  List<double> _splitterWeights = [0.0, 1];
 
   Map<String, List<DataCacheEntry>> dataCache = {};
   bool reloadDataCache = false;
@@ -171,8 +170,6 @@ class DataTrackerState extends State<MyHomePage> {
   Future<void> loadSettings() async {
     Hive.openBox('settings').then((box) {
       selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
-      _splitterWeights =
-          getSettingValue(hiveKeySplitterWeights, box, _splitterWeights);
 
       // chart zoom
       _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
@@ -323,62 +320,19 @@ class DataTrackerState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    List<Widget> dataLabels = [];
-    List<String> favouriteKeys = [];
-    for (var key in data.keys) {
-      if (data[key]!.isFavourite) {
-        favouriteKeys.add(key);
-        dataLabels.add(createKeyButton(key, context, this));
-      }
-    }
-    for (var key in data.keys) {
-      if (favouriteKeys.contains(key)) {
-        continue;
-      }
-      dataLabels.add(createKeyButton(key, context, this));
-    }
     var activeWidget =
         dataLoaded ? getChart() : const CircularProgressIndicator();
     return Scaffold(
       body: Screenshot(
           controller: _screenshotController,
-          child: Stack(children: [
-            Container(
-              color: Colors.amber.shade50,
-            ),
-            SplitView(
-              viewMode: SplitViewMode.Vertical,
-              controller: SplitViewController(limits: [
-                WeightLimit(min: 0.05, max: 0.35),
-                WeightLimit(min: 0.65, max: 0.95)
-              ], weights: _splitterWeights),
-              onWeightChanged: (weightList) {
-                _splitterWeights.clear();
-                for (var weight in weightList) {
-                  if (weight != null) {
-                    _splitterWeights.add(weight);
-                  }
-                }
-                saveListSettings(hiveKeySplitterWeights, _splitterWeights);
-              },
-              children: [
-                SizedBox(
-                    height: 50,
-                    child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: Column(children: <Widget>[
-                          SizedBox(
-                              height: MediaQuery.of(context).viewPadding.top),
-                          Wrap(
-                            alignment: WrapAlignment.start,
-                            spacing: 3,
-                            children: dataLabels,
-                          )
-                        ]))),
-                activeWidget,
-              ],
-            )
-          ])),
+          child: Stack(
+            children: [
+              Container(
+                color: Colors.amber.shade50,
+              ),
+              activeWidget,
+            ],
+          )),
       floatingActionButton: getFloatingActionButton(),
     );
   }
@@ -470,6 +424,33 @@ class DataTrackerState extends State<MyHomePage> {
     });
   }
 
+  Widget getDataLabelsWidget() {
+    List<Widget> dataLabels = [];
+    List<String> favouriteKeys = [];
+    dataLabels.add(SizedBox(
+      height: MediaQuery.of(context).padding.top * 2,
+    ));
+    for (var key in data.keys) {
+      if (data[key]!.isFavourite) {
+        favouriteKeys.add(key);
+        dataLabels.add(createKeyButton(key, context, this));
+      }
+    }
+    for (var key in data.keys) {
+      if (favouriteKeys.contains(key)) {
+        continue;
+      }
+      dataLabels.add(createKeyButton(key, context, this));
+    }
+    return SizedBox(
+        height: MediaQuery.of(context).size.height / 2,
+        child: SingleChildScrollView(
+            child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: dataLabels,
+        )));
+  }
+
   Widget? getFloatingActionButton() {
     bool expandedMenuSideAware = expandedMenu;
     if (!_rightHanded) {
@@ -537,18 +518,29 @@ class DataTrackerState extends State<MyHomePage> {
         ),
         const SizedBox(height: 15),
       ]);
-      return Row(
-          mainAxisAlignment:
-              _rightHanded ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            const SizedBox(
-              width: 30,
-            ),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: floatingButtons,
-            )
-          ]);
+      return Stack(children: [
+        Row(
+            mainAxisAlignment:
+                _rightHanded ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              const SizedBox(
+                width: 30,
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: floatingButtons,
+              )
+            ]),
+        Row(
+            mainAxisAlignment:
+                _rightHanded ? MainAxisAlignment.start : MainAxisAlignment.end,
+            children: [
+              const SizedBox(
+                width: 20,
+              ),
+              getDataLabelsWidget()
+            ])
+      ]);
     }
     return null;
   }
@@ -559,10 +551,6 @@ class DataTrackerState extends State<MyHomePage> {
             if (value != null)
               {
                 _addKey(value.container),
-                setState(() {
-                  _splitterWeights = [0.05, 0.95];
-                  saveSettings(hiveKeySplitterWeights, _splitterWeights);
-                })
               }
           });
     } else {

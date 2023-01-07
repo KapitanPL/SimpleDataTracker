@@ -43,6 +43,9 @@ ElevatedButton createKeyButton(
                   ],
                   controller: lastValueFieldController,
                   onSubmitted: (value) {
+                    double? parsedValue =
+                        double.tryParse(lastValueFieldController.text);
+                    if (parsedValue == null) return;
                     state.updateData(
                         key,
                         state.data[key]!.data.isEmpty
@@ -52,7 +55,7 @@ ElevatedButton createKeyButton(
                         state.data[key]!.data.isEmpty
                             ? DateTime.now().getMidnight()
                             : state.data[key]!.data.last.first,
-                        double.parse(lastValueFieldController.text),
+                        parsedValue!,
                         state.data[key]!.data.isEmpty
                             ? ""
                             : state.data[key]!.data.last.note);
