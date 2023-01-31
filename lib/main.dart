@@ -8,6 +8,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:split_view/split_view.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:intl/intl.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:social_share/social_share.dart';
@@ -22,7 +23,7 @@ import 'src/dialogs/yes_no_question.dart';
 
 typedef CallbackFunction = void Function();
 
-const bool isFree = true;
+const bool isFree = false;
 
 const String hiveKeyselectedItem = "selectedItem";
 const String hiveKeySplitterWeights = "splitterWeights";
@@ -38,7 +39,9 @@ const String hiveKeyControlsSide = "controlsSide";
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   var directory = await getApplicationSupportDirectory(); //? Or some better
+  print(directory.path);
   Hive
+    // ..init("data/user/0/customFolder")
     ..init(directory.path)
     ..registerAdapter(DataAdapter())
     ..registerAdapter(DataContainerAdapter())
@@ -80,7 +83,6 @@ class DataCacheEntry {
 class DataTrackerState extends State<MyHomePage> {
   Map<String, DataContainer> data = {};
   List<String> selectedKeys = [];
-  List<double> _splitterWeights = [0.0, 1];
 
   Map<String, List<DataCacheEntry>> dataCache = {};
   bool reloadDataCache = false;
@@ -166,19 +168,18 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   Future<void> loadSettings() async {
-    var box = await Hive.openBox('settings');
-    selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
-    _splitterWeights =
-        getSettingValue(hiveKeySplitterWeights, box, _splitterWeights);
+    Hive.openBox('settings').then((box) {
+      selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
 
-    // chart zoom
-    _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
-    _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
-    _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
-    _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
+      // chart zoom
+      _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
+      _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
+      _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
+      _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
 
-    _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
-    _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
+      _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
+      _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
+    });
   }
 
   Future<void> saveSettings(String key, dynamic value) async {
@@ -266,40 +267,43 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   void deleteKey(key) async {
-    yesNoQuestion(context, "Delete $key?").then((value) {
-      if (value) {
-        setState(() {
-          data.remove(key);
-          if (selectedKeys.contains(key)) {
-            selectedKeys.remove(key);
-            saveListSettings(hiveKeyselectedItem, selectedKeys);
-          }
-          reloadDataCache = true;
-          saveData();
-        });
+    setState(() {
+      data.remove(key);
+      if (selectedKeys.contains(key)) {
+        selectedKeys.remove(key);
+        saveListSettings(hiveKeyselectedItem, selectedKeys);
       }
+      reloadDataCache = true;
+      saveData();
     });
   }
 
   void editKey(key) async {
     EditSeriesDialog.show(context, data, isFree, this, defaultValue: data[key])
-        .then((value) {
-      if (value != null) {
-        setState(() {
-          if (key != value.name) {
-            var oldKey = key;
-            data[value.name] = data[key]!;
-            key = value.name;
-            data.remove(oldKey);
-          }
-          data[key]!.color = value.color;
-          data[key]!.name = value.name;
-          data[key]!.note = value.note;
-          data[key]!.isDateOnly = value.isDateOnly;
-          data[key]!.isFavourite = value.isFavourite;
-          reloadDataCache = true;
-          saveData();
-        });
+        .then((seriesReturn) {
+      if (seriesReturn != null) {
+        if (seriesReturn.delete) {
+          setState(() {
+            deleteKey(seriesReturn.container.name);
+          });
+        } else {
+          var value = seriesReturn.container;
+          setState(() {
+            if (key != value.name) {
+              var oldKey = key;
+              data[value.name] = data[key]!;
+              key = value.name;
+              data.remove(oldKey);
+            }
+            data[key]!.color = value.color;
+            data[key]!.name = value.name;
+            data[key]!.note = value.note;
+            data[key]!.isDateOnly = value.isDateOnly;
+            data[key]!.isFavourite = value.isFavourite;
+            reloadDataCache = true;
+            saveData();
+          });
+        }
       }
     });
   }
@@ -316,62 +320,20 @@ class DataTrackerState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    List<Widget> dataLabels = [];
-    List<String> favouriteKeys = [];
-    for (var key in data.keys) {
-      if (data[key]!.isFavourite) {
-        favouriteKeys.add(key);
-        dataLabels.add(createKeyButton(key, context, this));
-      }
-    }
-    for (var key in data.keys) {
-      if (favouriteKeys.contains(key)) {
-        continue;
-      }
-      dataLabels.add(createKeyButton(key, context, this));
-    }
     var activeWidget =
         dataLoaded ? getChart() : const CircularProgressIndicator();
     return Scaffold(
       body: Screenshot(
           controller: _screenshotController,
-          child: Stack(children: [
-            Container(
-              color: Colors.amber.shade50,
-            ),
-            SplitView(
-              viewMode: SplitViewMode.Vertical,
-              controller: SplitViewController(limits: [
-                WeightLimit(min: 0.05, max: 0.35),
-                WeightLimit(min: 0.65, max: 0.95)
-              ], weights: _splitterWeights),
-              onWeightChanged: (weightList) {
-                _splitterWeights.clear();
-                for (var weight in weightList) {
-                  if (weight != null) {
-                    _splitterWeights.add(weight);
-                  }
-                }
-                saveListSettings(hiveKeySplitterWeights, _splitterWeights);
-              },
-              children: [
-                SizedBox(
-                    height: 50,
-                    child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: Column(children: <Widget>[
-                          SizedBox(
-                              height: MediaQuery.of(context).viewPadding.top),
-                          Wrap(
-                            alignment: WrapAlignment.start,
-                            spacing: 3,
-                            children: dataLabels,
-                          )
-                        ]))),
-                activeWidget,
-              ],
-            )
-          ])),
+          child: Stack(
+            children: [
+              Container(
+                color: Colors.amber.shade50,
+              ),
+              activeWidget,
+              getDataLabelsWidget()
+            ],
+          )),
       floatingActionButton: getFloatingActionButton(),
     );
   }
@@ -405,7 +367,7 @@ class DataTrackerState extends State<MyHomePage> {
       return;
     }
     EditSeriesDialog.show(context, data, isFree, this).then((value) => {
-          if (value != null) {_addKey(value)}
+          if (value != null) {_addKey(value.container)}
         });
   }
 
@@ -461,6 +423,49 @@ class DataTrackerState extends State<MyHomePage> {
       _rightHanded = !_rightHanded;
       saveSettings(hiveKeyControlsSide, _rightHanded);
     });
+  }
+
+  Widget getDataLabelsWidget() {
+    List<Widget> dataLabels = [];
+    List<String> favouriteKeys = [];
+    dataLabels.add(SizedBox(
+      height: MediaQuery.of(context).padding.top * 2,
+    ));
+    double width = MediaQuery.of(context).size.width * 3 / 8;
+    bool first = true;
+    for (var key in data.keys) {
+      if (data[key]!.isFavourite) {
+        favouriteKeys.add(key);
+        if (!first) {
+          dataLabels.add(const SizedBox(
+            height: 7,
+          ));
+        } else {
+          first = false;
+        }
+        dataLabels.add(createKeyButton(key, context, this, width));
+      }
+    }
+    for (var key in data.keys) {
+      if (favouriteKeys.contains(key)) {
+        continue;
+      }
+      if (!first) {
+        dataLabels.add(const SizedBox(
+          height: 7,
+        ));
+      } else {
+        first = false;
+      }
+      dataLabels.add(createKeyButton(key, context, this, width));
+    }
+    return SizedBox(
+        height: MediaQuery.of(context).size.height / 2,
+        child: SingleChildScrollView(
+            child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: dataLabels,
+        )));
   }
 
   Widget? getFloatingActionButton() {
@@ -530,18 +535,29 @@ class DataTrackerState extends State<MyHomePage> {
         ),
         const SizedBox(height: 15),
       ]);
-      return Row(
-          mainAxisAlignment:
-              _rightHanded ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            const SizedBox(
-              width: 30,
-            ),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: floatingButtons,
-            )
-          ]);
+      return Stack(children: [
+        Row(
+            mainAxisAlignment:
+                _rightHanded ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              const SizedBox(
+                width: 30,
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: floatingButtons,
+              )
+            ]),
+        Row(
+            mainAxisAlignment:
+                _rightHanded ? MainAxisAlignment.start : MainAxisAlignment.end,
+            children: [
+              const SizedBox(
+                width: 20,
+              ),
+              getDataLabelsWidget()
+            ])
+      ]);
     }
     return null;
   }
@@ -551,11 +567,7 @@ class DataTrackerState extends State<MyHomePage> {
       EditSeriesDialog.show(context, data, isFree, this).then((value) => {
             if (value != null)
               {
-                _addKey(value),
-                setState(() {
-                  _splitterWeights = [0.05, 0.95];
-                  saveSettings(hiveKeySplitterWeights, _splitterWeights);
-                })
+                _addKey(value.container),
               }
           });
     } else {
