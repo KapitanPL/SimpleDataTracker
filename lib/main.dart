@@ -331,6 +331,7 @@ class DataTrackerState extends State<MyHomePage> {
                 color: Colors.amber.shade50,
               ),
               activeWidget,
+              getDataLabelsWidget()
             ],
           )),
       floatingActionButton: getFloatingActionButton(),
@@ -430,17 +431,33 @@ class DataTrackerState extends State<MyHomePage> {
     dataLabels.add(SizedBox(
       height: MediaQuery.of(context).padding.top * 2,
     ));
+    double width = MediaQuery.of(context).size.width * 3 / 8;
+    bool first = true;
     for (var key in data.keys) {
       if (data[key]!.isFavourite) {
         favouriteKeys.add(key);
-        dataLabels.add(createKeyButton(key, context, this));
+        if (!first) {
+          dataLabels.add(const SizedBox(
+            height: 7,
+          ));
+        } else {
+          first = false;
+        }
+        dataLabels.add(createKeyButton(key, context, this, width));
       }
     }
     for (var key in data.keys) {
       if (favouriteKeys.contains(key)) {
         continue;
       }
-      dataLabels.add(createKeyButton(key, context, this));
+      if (!first) {
+        dataLabels.add(const SizedBox(
+          height: 7,
+        ));
+      } else {
+        first = false;
+      }
+      dataLabels.add(createKeyButton(key, context, this, width));
     }
     return SizedBox(
         height: MediaQuery.of(context).size.height / 2,
