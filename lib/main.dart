@@ -331,7 +331,16 @@ class DataTrackerState extends State<MyHomePage> {
                 color: Colors.amber.shade50,
               ),
               activeWidget,
-              getDataLabelsWidget()
+              Row(
+                  mainAxisAlignment: _rightHanded
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.end,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                    ),
+                    getDataLabelsWidget()
+                  ])
             ],
           )),
       floatingActionButton: getFloatingActionButton(),
@@ -548,15 +557,6 @@ class DataTrackerState extends State<MyHomePage> {
                 children: floatingButtons,
               )
             ]),
-        Row(
-            mainAxisAlignment:
-                _rightHanded ? MainAxisAlignment.start : MainAxisAlignment.end,
-            children: [
-              const SizedBox(
-                width: 20,
-              ),
-              getDataLabelsWidget()
-            ])
       ]);
     }
     return null;
