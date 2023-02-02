@@ -468,13 +468,24 @@ class DataTrackerState extends State<MyHomePage> {
       }
       dataLabels.add(createKeyButton(key, context, this, width));
     }
-    return SizedBox(
-        height: MediaQuery.of(context).size.height / 2,
-        child: SingleChildScrollView(
-            child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: dataLabels,
-        )));
+    return ShaderMask(
+        shaderCallback: (Rect bounds) {
+          var xCoord = (Alignment.center.x + Alignment.bottomCenter.x) / 2;
+          var yCoord = (Alignment.center.y + Alignment.bottomCenter.y) / 2;
+          return LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment(xCoord, yCoord),
+            colors: const [Colors.black, Colors.transparent],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstOut,
+        child: SizedBox(
+            height: MediaQuery.of(context).size.height / 4,
+            child: SingleChildScrollView(
+                child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: dataLabels,
+            ))));
   }
 
   Widget? getFloatingActionButton() {
