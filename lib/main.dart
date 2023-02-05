@@ -438,33 +438,18 @@ class DataTrackerState extends State<MyHomePage> {
     List<Widget> dataLabels = [];
     List<String> favouriteKeys = [];
     dataLabels.add(SizedBox(
-      height: MediaQuery.of(context).padding.top * 2,
+      height: MediaQuery.of(context).padding.top,
     ));
     double width = MediaQuery.of(context).size.width * 3 / 8;
-    bool first = true;
     for (var key in data.keys) {
       if (data[key]!.isFavourite) {
         favouriteKeys.add(key);
-        if (!first) {
-          dataLabels.add(const SizedBox(
-            height: 7,
-          ));
-        } else {
-          first = false;
-        }
         dataLabels.add(createKeyButton(key, context, this, width));
       }
     }
     for (var key in data.keys) {
       if (favouriteKeys.contains(key)) {
         continue;
-      }
-      if (!first) {
-        dataLabels.add(const SizedBox(
-          height: 7,
-        ));
-      } else {
-        first = false;
       }
       dataLabels.add(createKeyButton(key, context, this, width));
     }
