@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:datatracker/src/dialogs/sing_in_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:collection/collection.dart';
@@ -12,6 +13,10 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:intl/intl.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:social_share/social_share.dart';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
 
 import 'src/dataRecord/data.dart';
 import 'src/widgets/key_button.dart';
@@ -39,13 +44,15 @@ const String hiveKeyControlsSide = "controlsSide";
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   var directory = await getApplicationSupportDirectory(); //? Or some better
-  print(directory.path);
   Hive
     // ..init("data/user/0/customFolder")
     ..init(directory.path)
     ..registerAdapter(DataAdapter())
     ..registerAdapter(DataContainerAdapter())
     ..registerAdapter(ColorAdapter());
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const DataTracker());
 }
 
@@ -96,6 +103,8 @@ class DataTrackerState extends State<MyHomePage> {
 
   bool _rightHanded = true;
 
+  User? _loggedInUser = null;
+
   DateTime _lastShare = DateTime.now().subtract(const Duration(days: 60));
   static const Duration _freeShareDuration = Duration(days: 30);
 
@@ -115,6 +124,21 @@ class DataTrackerState extends State<MyHomePage> {
             dataLoaded = true;
           },
         ));
+  }
+
+  @override
+  @mustCallSuper
+  void initState() {
+    super.initState();
+    if (_loggedInUser == null) {
+      _showSignInDialog();
+    }
+  }
+
+  _showSignInDialog() async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+    signInDialog(context).then((value) => _loggedInUser = value);
   }
 
   void updateChartRangesUponPointChange(DateTime date, double value) {
@@ -481,6 +505,17 @@ class DataTrackerState extends State<MyHomePage> {
     if (dataLoaded) {
       List<Widget> floatingButtons = [];
       if (expandedMenu) {
+        if (_loggedInUser == null) {
+          floatingButtons.addAll([
+            FloatingActionButton(
+                onPressed: _showSignInDialog,
+                mini: true,
+                child: const Icon(Icons.login)),
+            const SizedBox(
+              height: 5,
+            ),
+          ]);
+        }
         floatingButtons.addAll([
           FloatingActionButton(
             onPressed: _onHandSide,

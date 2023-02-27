@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "879747636146",
+    "project_id": "simpledatatracker-8f954",
+    "storage_bucket": "simpledatatracker-8f954.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879747636146:android:4a6d8089a3bccdb265e2ab",
+        "android_client_info": {
+          "package_name": "com.poormansoftware.datatracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "879747636146-5gi69gd7ca9fe5arpfe7sqj1ra3bqjta.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVkrPfxeueCSaGmw9eIRm2_YXWRSZknAI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "879747636146-5gi69gd7ca9fe5arpfe7sqj1ra3bqjta.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "879747636146-7as1gbujig47dqmc5l3t7mf28m41hqt4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.datatracker"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -5,7 +5,7 @@ Future<bool> yesNoQuestion(BuildContext context, String question) async {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Qestion'),
+          title: const Text('Question'),
           content: Text(question),
           actions: <Widget>[
             ElevatedButton(
