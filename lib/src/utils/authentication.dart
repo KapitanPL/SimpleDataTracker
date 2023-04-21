@@ -1,7 +1,17 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import "dart:io";
+
 class Authentication {
+  static User? loggedInUser() {
+    return FirebaseAuth.instance.currentUser;
+  }
+
+  static void logout() {
+    FirebaseAuth.instance.signOut();
+  }
+
   static Future<User?> signInWithGoogle() async {
     FirebaseAuth auth = FirebaseAuth.instance;
     User? user;
@@ -25,14 +35,14 @@ class Authentication {
             await auth.signInWithCredential(credential);
 
         user = userCredential.user;
-      } on FirebaseAuthException catch (e) {
+      } on FirebaseException catch (e) {
         if (e.code == 'account-exists-with-different-credential') {
-          // handle the error here
+          print(e.code);
         } else if (e.code == 'invalid-credential') {
-          // handle the error here
+          print(e.code);
+        } else {
+          print(e);
         }
-      } catch (e) {
-        // handle the error here
       }
     }
 

@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:datatracker/src/dialogs/sing_in_dialog.dart';
+import 'package:datatracker/src/utils/authentication.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:collection/collection.dart';
@@ -53,6 +54,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  FirebaseAuth.instance.authStateChanges().listen((User? user) {
+    if (user == null) {
+    } else {}
+  });
   runApp(const DataTracker());
 }
 
@@ -103,7 +108,10 @@ class DataTrackerState extends State<MyHomePage> {
 
   bool _rightHanded = true;
 
-  User? _loggedInUser = null;
+  bool _settingsLoaded = false;
+
+  bool _userLoaded = false;
+  User? _loggedInUser;
 
   DateTime _lastShare = DateTime.now().subtract(const Duration(days: 60));
   static const Duration _freeShareDuration = Duration(days: 30);
@@ -111,7 +119,11 @@ class DataTrackerState extends State<MyHomePage> {
   final ScreenshotController _screenshotController = ScreenshotController();
 
   DataTrackerState() {
-    loadSettings();
+    _loggedInUser = Authentication.loggedInUser();
+    _userLoaded = true;
+    loadSettings().then((value) => setState(
+          () {},
+        ));
     loadData().then(
       (value) {
         setState(() {
@@ -130,7 +142,7 @@ class DataTrackerState extends State<MyHomePage> {
   @mustCallSuper
   void initState() {
     super.initState();
-    if (_loggedInUser == null) {
+    if (_userLoaded && _loggedInUser == null) {
       _showSignInDialog();
     }
   }
@@ -138,7 +150,11 @@ class DataTrackerState extends State<MyHomePage> {
   _showSignInDialog() async {
     await Future.delayed(const Duration(milliseconds: 50));
     if (!mounted) return;
-    signInDialog(context).then((value) => _loggedInUser = value);
+    signInDialog(context).then((value) => _processLogin(value));
+  }
+
+  void _processLogin(User? newUser) {
+    _loggedInUser = newUser;
   }
 
   void updateChartRangesUponPointChange(DateTime date, double value) {
@@ -203,6 +219,8 @@ class DataTrackerState extends State<MyHomePage> {
 
       _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
       _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
+
+      _settingsLoaded = true;
     });
   }
 
@@ -346,29 +364,31 @@ class DataTrackerState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     var activeWidget =
         dataLoaded ? getChart() : const CircularProgressIndicator();
-    return Scaffold(
-      body: Screenshot(
-          controller: _screenshotController,
-          child: Stack(
-            children: [
-              Container(
-                color: Colors.amber.shade50,
-              ),
-              activeWidget,
-              Row(
-                  mainAxisAlignment: _rightHanded
-                      ? MainAxisAlignment.start
-                      : MainAxisAlignment.end,
+    return _settingsLoaded
+        ? Scaffold(
+            body: Screenshot(
+                controller: _screenshotController,
+                child: Stack(
                   children: [
-                    const SizedBox(
-                      width: 20,
+                    Container(
+                      color: Colors.amber.shade50,
                     ),
-                    getDataLabelsWidget()
-                  ])
-            ],
-          )),
-      floatingActionButton: getFloatingActionButton(),
-    );
+                    activeWidget,
+                    Row(
+                        mainAxisAlignment: _rightHanded
+                            ? MainAxisAlignment.start
+                            : MainAxisAlignment.end,
+                        children: [
+                          const SizedBox(
+                            width: 20,
+                          ),
+                          getDataLabelsWidget()
+                        ])
+                  ],
+                )),
+            floatingActionButton: getFloatingActionButton(),
+          )
+        : const Scaffold();
   }
 
   void _onShare() async {
@@ -508,9 +528,30 @@ class DataTrackerState extends State<MyHomePage> {
         if (_loggedInUser == null) {
           floatingButtons.addAll([
             FloatingActionButton(
-                onPressed: _showSignInDialog,
+                onPressed: () {
+                  setState(() {
+                    expandedMenu = false;
+                    _showSignInDialog();
+                  });
+                },
                 mini: true,
                 child: const Icon(Icons.login)),
+            const SizedBox(
+              height: 5,
+            ),
+          ]);
+        } else {
+          floatingButtons.addAll([
+            FloatingActionButton(
+                onPressed: () {
+                  setState(() {
+                    expandedMenu = false;
+                    Authentication.logout();
+                    _loggedInUser = null;
+                  });
+                },
+                mini: true,
+                child: const Icon(Icons.logout)),
             const SizedBox(
               height: 5,
             ),

@@ -15,8 +15,10 @@ Future<User?> signInDialog(BuildContext context) async {
               child: SignInButton(
                 Buttons.Google,
                 onPressed: () {
-                  Authentication.signInWithGoogle().then((value) =>
-                      Navigator.of(context, rootNavigator: true).pop(value));
+                  Authentication.signInWithGoogle().then((value) {
+                    print("then $value");
+                    Navigator.of(context, rootNavigator: true).pop(value);
+                  });
                 },
               )),
           actions: <Widget>[
