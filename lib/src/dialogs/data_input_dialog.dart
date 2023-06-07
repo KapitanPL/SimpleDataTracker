@@ -79,7 +79,7 @@ class DataInputDialog extends AlertDialog {
           itemBuilder: (BuildContext context) =>
               isTimeAndDate ? timeKeys : dateKeys,
           onSelected: (item) {
-            switch (item.hashCode) {
+            switch (item) {
               case 0:
                 {
                   var now = DateTime.now();

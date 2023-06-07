@@ -20,19 +20,22 @@ class DataAdapter extends TypeAdapter<Data> {
       first: fields[0] as DateTime,
       second: fields[1] as double,
       note: fields[2] == null ? '' : fields[2] as String,
+      uid: fields[3] == null ? '' : fields[3] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Data obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.first)
       ..writeByte(1)
       ..write(obj.second)
       ..writeByte(2)
-      ..write(obj.note);
+      ..write(obj.note)
+      ..writeByte(3)
+      ..write(obj.uid);
   }
 
   @override

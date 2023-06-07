@@ -1,5 +1,7 @@
-import 'package:hive/hive.dart';
 import 'dart:ui';
+
+import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart';
 
 part 'data.g.dart';
 
@@ -16,7 +18,24 @@ class ColorAdapter extends TypeAdapter<Color> {
 
 @HiveType(typeId: 1)
 class Data extends HiveObject {
-  Data({required this.first, required this.second, this.note = ""});
+  Data(
+      {required this.first,
+      required this.second,
+      this.note = "",
+      this.uid = ""}) {
+    if (uid.isEmpty) {
+      var uuid = const Uuid();
+      uid = uuid.v4();
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      "dateTime": first.millisecondsSinceEpoch,
+      "value": second,
+      "note": note
+    };
+  }
 
   @HiveField(0)
   DateTime first = DateTime.now();
@@ -26,6 +45,9 @@ class Data extends HiveObject {
 
   @HiveField(2, defaultValue: "")
   String note;
+
+  @HiveField(3, defaultValue: "")
+  String uid;
 }
 
 class DataDialogReturn {
@@ -49,17 +71,32 @@ class DataContainer {
   List<Data> data = [];
 
   @HiveField(1)
-  String name;
+  late String name;
 
   @HiveField(2)
-  String note;
+  late String note;
 
   @HiveField(3)
-  Color color;
+  late Color color;
 
   @HiveField(4, defaultValue: true)
-  bool isDateOnly;
+  late bool isDateOnly;
 
   @HiveField(5, defaultValue: false)
-  bool isFavourite;
+  late bool isFavourite;
+
+  Map<String, dynamic> toJson() {
+    List<String> dataUids = [];
+    for (var d in data) {
+      dataUids.add(d.uid);
+    }
+    return {
+      "name": name,
+      "note": note,
+      "color": color.value,
+      "isDateOnly": isDateOnly,
+      "isFavourite": isFavourite,
+      "dataUids": dataUids,
+    };
+  }
 }

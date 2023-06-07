@@ -2,10 +2,12 @@ import 'dart:math';
 
 import 'package:datatracker/src/dialogs/sing_in_dialog.dart';
 import 'package:datatracker/src/utils/authentication.dart';
+import 'package:datatracker/src/utils/firebase_api.dart';
+import 'package:datatracker/src/utils/data_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:collection/collection.dart';
-import 'package:hive/hive.dart';
+
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
@@ -15,8 +17,8 @@ import 'package:intl/intl.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:social_share/social_share.dart';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
 import 'src/dataRecord/data.dart';
@@ -42,6 +44,12 @@ const String hiveKeyyMax = "yMax";
 const String hiveKeyLastShare = "lastShare";
 const String hiveKeyControlsSide = "controlsSide";
 
+const String hiveKeyAskForLogin = "askForLogin";
+
+const int databaseAll = -1;
+
+late FirebaseApp firebaseApp;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   var directory = await getApplicationSupportDirectory(); //? Or some better
@@ -51,13 +59,9 @@ void main() async {
     ..registerAdapter(DataAdapter())
     ..registerAdapter(DataContainerAdapter())
     ..registerAdapter(ColorAdapter());
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  FirebaseAuth.instance.authStateChanges().listen((User? user) {
-    if (user == null) {
-    } else {}
-  });
+  firebaseApp = await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(const DataTracker());
 }
 
@@ -111,6 +115,7 @@ class DataTrackerState extends State<MyHomePage> {
   bool _settingsLoaded = false;
 
   bool _userLoaded = false;
+  bool _askForLogin = true;
   User? _loggedInUser;
 
   DateTime _lastShare = DateTime.now().subtract(const Duration(days: 60));
@@ -118,13 +123,29 @@ class DataTrackerState extends State<MyHomePage> {
 
   final ScreenshotController _screenshotController = ScreenshotController();
 
+  late DataStorage _database;
+
+  BuildContext? signInDialogContext;
+
   DataTrackerState() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      _loggedInUser = user;
+      if (user == null) {
+        onLogout();
+      } else {
+        onLogin();
+      }
+    });
     _loggedInUser = Authentication.loggedInUser();
     _userLoaded = true;
     loadSettings().then((value) => setState(
           () {},
         ));
-    loadData().then(
+    _database = DataStorage(
+        datatracker: this,
+        loggedInUser: _loggedInUser,
+        firebaseApp: firebaseApp);
+    _database.loadData().then(
       (value) {
         setState(() {
           data = value;
@@ -138,23 +159,60 @@ class DataTrackerState extends State<MyHomePage> {
         ));
   }
 
+  void onLogin() {
+    if (_userLoaded && _database.runsLocally()) {
+      if (dataLoaded) {
+        // login after using only locally.
+        _database = DataStorage(
+            datatracker: this,
+            loggedInUser: _loggedInUser,
+            firebaseApp: firebaseApp);
+        _database.saveData("", databaseAll);
+      }
+    }
+  }
+
+  void onLogout() {
+    if (_userLoaded && _database.runsInCloud()) {
+      if (dataLoaded) {
+        // login after using only locally.
+        _database = DataStorage(
+            datatracker: this,
+            loggedInUser: _loggedInUser,
+            firebaseApp: firebaseApp);
+        _database.saveData("", databaseAll);
+      }
+    }
+  }
+
   @override
   @mustCallSuper
   void initState() {
     super.initState();
-    if (_userLoaded && _loggedInUser == null) {
-      _showSignInDialog();
-    }
   }
 
   _showSignInDialog() async {
     await Future.delayed(const Duration(milliseconds: 50));
     if (!mounted) return;
+    _dismissSignInDialog();
+    signInDialogContext = context;
     signInDialog(context).then((value) => _processLogin(value));
   }
 
+  void _dismissSignInDialog() {
+    if (signInDialogContext != null) {
+      Navigator.pop(signInDialogContext!);
+      signInDialogContext = null;
+    }
+  }
+
   void _processLogin(User? newUser) {
+    if (_loggedInUser == null && newUser == null) {
+      _askForLogin = false;
+      saveSettings(hiveKeyAskForLogin, _askForLogin);
+    }
     _loggedInUser = newUser;
+    signInDialogContext = null;
   }
 
   void updateChartRangesUponPointChange(DateTime date, double value) {
@@ -193,7 +251,7 @@ class DataTrackerState extends State<MyHomePage> {
                 value.data);
           }
           updateChartRangesUponPointChange(value.data.first, value.data.second);
-          saveData(key: dataKey);
+          _database.saveData(dataKey, -1);
           reloadDataCache = true;
         });
       }
@@ -208,20 +266,21 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   Future<void> loadSettings() async {
-    Hive.openBox('settings').then((box) {
-      selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
+    var box = await Hive.openBox('settings');
+    selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
 
-      // chart zoom
-      _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
-      _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
-      _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
-      _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
+    // chart zoom
+    _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
+    _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
+    _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
+    _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
 
-      _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
-      _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
+    _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
+    _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
 
-      _settingsLoaded = true;
-    });
+    _askForLogin = getSettingValue(hiveKeyAskForLogin, box, true);
+
+    _settingsLoaded = true;
   }
 
   Future<void> saveSettings(String key, dynamic value) async {
@@ -239,32 +298,6 @@ class DataTrackerState extends State<MyHomePage> {
     saveSettings(hiveKeyxMin, _xMin);
     saveSettings(hiveKeyyMax, _yMax);
     saveSettings(hiveKeyyMin, _yMin);
-  }
-
-  Future<Map<String, DataContainer>> loadData() async {
-    var box = await Hive.openBox('dataBox');
-    Map<String, DataContainer> loadedData = {};
-    for (var key in box.keys) {
-      if (key is String) {
-        var data = box.get(key);
-        if (data is DataContainer) {
-          loadedData[key] = box.get(key);
-        }
-      }
-    }
-    return loadedData;
-  }
-
-  Future<void> saveData({String? key}) async {
-    var box = await Hive.openBox('dataBox');
-    if (key == null) {
-      box.clear();
-      for (var key in data.keys) {
-        box.put(key, data[key]);
-      }
-    } else {
-      box.put(key, data[key]);
-    }
   }
 
   void keyValuePressed(String key) {
@@ -304,7 +337,11 @@ class DataTrackerState extends State<MyHomePage> {
       }
       updateChartRangesUponPointChange(date, value);
       reloadDataCache = true;
-      saveData(key: key);
+      if (deleteValue) {
+        _database.deleteData(key, index);
+      } else {
+        _database.saveData(key, index);
+      }
     });
   }
 
@@ -316,7 +353,7 @@ class DataTrackerState extends State<MyHomePage> {
         saveListSettings(hiveKeyselectedItem, selectedKeys);
       }
       reloadDataCache = true;
-      saveData();
+      _database.deleteData(key, databaseAll);
     });
   }
 
@@ -343,7 +380,8 @@ class DataTrackerState extends State<MyHomePage> {
             data[key]!.isDateOnly = value.isDateOnly;
             data[key]!.isFavourite = value.isFavourite;
             reloadDataCache = true;
-            saveData();
+            // TODO: update only key
+            _database.saveData(key, databaseAll);
           });
         }
       }
@@ -355,7 +393,7 @@ class DataTrackerState extends State<MyHomePage> {
       if (data.keys.contains(value.name) == false) {
         data[value.name] = value;
         selectedKeys.add(value.name);
-        saveData();
+        _database.saveData(value.name, databaseAll);
       }
     });
   }
@@ -364,6 +402,10 @@ class DataTrackerState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     var activeWidget =
         dataLoaded ? getChart() : const CircularProgressIndicator();
+    _dismissSignInDialog();
+    if (_askForLogin && _loggedInUser == null) {
+      _showSignInDialog();
+    }
     return _settingsLoaded
         ? Scaffold(
             body: Screenshot(
