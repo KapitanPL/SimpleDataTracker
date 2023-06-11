@@ -4,6 +4,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../utils/authentication.dart';
 
+void showError(BuildContext context, String message) {
+  showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Sign In ERROR'),
+          content: Text(message),
+          actions: <Widget>[
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context, rootNavigator: true)
+                    .pop(); // dismisses only the dialog and returns false
+              },
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      });
+}
+
 Future<User?> signInDialog(BuildContext context) async {
   User? result = await showDialog(
       context: context,
@@ -15,8 +35,9 @@ Future<User?> signInDialog(BuildContext context) async {
               child: SignInButton(
                 Buttons.Google,
                 onPressed: () {
-                  Authentication.signInWithGoogle().then((value) {
-                    print("then $value");
+                  Authentication.signInWithGoogle(
+                          (errorString) => showError(context, errorString))
+                      .then((value) {
                     Navigator.of(context, rootNavigator: true).pop(value);
                   });
                 },

@@ -1,7 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/src/services/message_codec.dart';
 
 import "dart:io";
+
+typedef ErrorCallback = void Function(String error);
 
 class Authentication {
   static User? loggedInUser() {
@@ -12,18 +15,23 @@ class Authentication {
     FirebaseAuth.instance.signOut();
   }
 
-  static Future<User?> signInWithGoogle() async {
+  static Future<User?> signInWithGoogle(ErrorCallback onError) async {
     FirebaseAuth auth = FirebaseAuth.instance;
     User? user;
 
     final GoogleSignIn googleSignIn = GoogleSignIn();
 
+    try {
+      await googleSignIn.disconnect().timeout(const Duration(seconds: 10));
+    } on PlatformException catch (e) {}
+
     final GoogleSignInAccount? googleSignInAccount =
-        await googleSignIn.signIn();
+        await googleSignIn.signIn().timeout(const Duration(seconds: 10));
 
     if (googleSignInAccount != null) {
       final GoogleSignInAuthentication googleSignInAuthentication =
-          await googleSignInAccount.authentication;
+          await googleSignInAccount.authentication
+              .timeout(const Duration(seconds: 10));
 
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleSignInAuthentication.accessToken,
@@ -31,19 +39,16 @@ class Authentication {
       );
 
       try {
-        final UserCredential userCredential =
-            await auth.signInWithCredential(credential);
+        final UserCredential userCredential = await auth
+            .signInWithCredential(credential)
+            .timeout(const Duration(seconds: 10));
 
         user = userCredential.user;
       } on FirebaseException catch (e) {
-        if (e.code == 'account-exists-with-different-credential') {
-          print(e.code);
-        } else if (e.code == 'invalid-credential') {
-          print(e.code);
-        } else {
-          print(e);
-        }
+        onError(e.toString());
       }
+    } else {
+      onError("googleSignInAccount is null!");
     }
 
     return user;

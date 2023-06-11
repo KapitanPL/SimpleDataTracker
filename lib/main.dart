@@ -11,9 +11,9 @@ import 'package:collection/collection.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-import 'package:split_view/split_view.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:social_share/social_share.dart';
 
@@ -49,6 +49,14 @@ const String hiveKeyAskForLogin = "askForLogin";
 const int databaseAll = -1;
 
 late FirebaseApp firebaseApp;
+
+List<String> getVersionNotes() {
+  List<String> notes = [];
+  notes.add("Version notes.");
+  notes.add("Account login/logout synchronization should work");
+  notes.add("try/catch on disconnect");
+  return notes;
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -145,6 +153,62 @@ class DataTrackerState extends State<MyHomePage> {
         datatracker: this,
         loggedInUser: _loggedInUser,
         firebaseApp: firebaseApp);
+    reloadDataFromDatabase();
+  }
+
+  void onLogin() {
+    if (_userLoaded && _database.runsLocally()) {
+      if (dataLoaded) {
+        // login after using only locally.
+        _database = DataStorage(
+            datatracker: this,
+            loggedInUser: _loggedInUser,
+            firebaseApp: firebaseApp);
+        if (data.isNotEmpty) {
+          yesNoQuestion(
+                  context, "Transfer data to cloud? (Keep what you have?)")
+              .then((value) {
+            if (value) {
+              _database.saveData("", databaseAll);
+            } else {
+              data.clear();
+              selectedKeys.clear();
+              dataCache.clear();
+              reloadDataFromDatabase();
+            }
+          });
+        }
+      }
+    }
+  }
+
+  void onLogout() {
+    if (_userLoaded && _database.runsInCloud()) {
+      if (dataLoaded) {
+        // login after using only locally.
+        _database = DataStorage(
+            datatracker: this,
+            loggedInUser: _loggedInUser,
+            firebaseApp: firebaseApp);
+        if (data.isNotEmpty) {
+          yesNoQuestion(context,
+                  "Transfer data to this device? (Keep what you have?)")
+              .then((value) {
+            if (value) {
+              _database.saveData("", databaseAll);
+            } else {
+              data.clear();
+              selectedKeys.clear();
+              dataCache.clear();
+              reloadDataFromDatabase();
+            }
+          });
+        }
+      }
+    }
+  }
+
+  void reloadDataFromDatabase() {
     _database.loadData().then(
       (value) {
         setState(() {
@@ -159,39 +223,13 @@ class DataTrackerState extends State<MyHomePage> {
         ));
   }
 
-  void onLogin() {
-    if (_userLoaded && _database.runsLocally()) {
-      if (dataLoaded) {
-        // login after using only locally.
-        _database = DataStorage(
-            datatracker: this,
-            loggedInUser: _loggedInUser,
-            firebaseApp: firebaseApp);
-        _database.saveData("", databaseAll);
-      }
-    }
-  }
-
-  void onLogout() {
-    if (_userLoaded && _database.runsInCloud()) {
-      if (dataLoaded) {
-        // login after using only locally.
-        _database = DataStorage(
-            datatracker: this,
-            loggedInUser: _loggedInUser,
-            firebaseApp: firebaseApp);
-        _database.saveData("", databaseAll);
-      }
-    }
-  }
-
   @override
   @mustCallSuper
   void initState() {
     super.initState();
   }
 
-  _showSignInDialog() async {
+  Future<void> _showSignInDialog() async {
     await Future.delayed(const Duration(milliseconds: 50));
     if (!mounted) return;
     _dismissSignInDialog();
@@ -204,6 +242,38 @@ class DataTrackerState extends State<MyHomePage> {
       Navigator.pop(signInDialogContext!);
       signInDialogContext = null;
     }
+  }
+
+  void _showAboutDialog() {
+    PackageInfo.fromPlatform().then((value) {
+      String info = "Info: \n";
+      info += "Version ${value.version}\n";
+      var versionNotes = getVersionNotes();
+      if (versionNotes.isNotEmpty) {
+        info += " \n";
+        info += "Notes: \n";
+        for (var note in versionNotes) {
+          info += "$note\n";
+        }
+      }
+      showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Simple Data Tracker'),
+              content: Text(info),
+              actions: <Widget>[
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context, rootNavigator: true)
+                        .pop(); // dismisses only the dialog and returns false
+                  },
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          });
+    });
   }
 
   void _processLogin(User? newUser) {
@@ -567,6 +637,19 @@ class DataTrackerState extends State<MyHomePage> {
     if (dataLoaded) {
       List<Widget> floatingButtons = [];
       if (expandedMenu) {
+        floatingButtons.addAll([
+          FloatingActionButton(
+              onPressed: () {
+                setState(() {
+                  _showAboutDialog();
+                });
+              },
+              mini: true,
+              child: const Icon(Icons.info_outline)),
+          const SizedBox(
+            height: 5,
+          ),
+        ]);
         if (_loggedInUser == null) {
           floatingButtons.addAll([
             FloatingActionButton(
