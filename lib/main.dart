@@ -133,7 +133,7 @@ class DataTrackerState extends State<MyHomePage> {
 
   late DataStorage _database;
 
-  BuildContext? signInDialogContext;
+  List<BuildContext> signInDialogContext = [];
 
   DataTrackerState() {
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
@@ -146,9 +146,7 @@ class DataTrackerState extends State<MyHomePage> {
     });
     _loggedInUser = Authentication.loggedInUser();
     _userLoaded = true;
-    loadSettings().then((value) => setState(
-          () {},
-        ));
+    loadSettings();
     _database = DataStorage(
         datatracker: this,
         loggedInUser: _loggedInUser,
@@ -233,14 +231,17 @@ class DataTrackerState extends State<MyHomePage> {
     await Future.delayed(const Duration(milliseconds: 50));
     if (!mounted) return;
     _dismissSignInDialog();
-    signInDialogContext = context;
+    signInDialogContext.add(context);
+    print("Context assigned");
     signInDialog(context).then((value) => _processLogin(value));
   }
 
   void _dismissSignInDialog() {
-    if (signInDialogContext != null) {
-      Navigator.pop(signInDialogContext!);
-      signInDialogContext = null;
+    print("Try to dismiss old dialog");
+    if (signInDialogContext.isNotEmpty) {
+      print("Dismiss the old dialog");
+      Navigator.pop(signInDialogContext.first);
+      signInDialogContext.removeAt(0);
     }
   }
 
@@ -282,7 +283,6 @@ class DataTrackerState extends State<MyHomePage> {
       saveSettings(hiveKeyAskForLogin, _askForLogin);
     }
     _loggedInUser = newUser;
-    signInDialogContext = null;
   }
 
   void updateChartRangesUponPointChange(DateTime date, double value) {
@@ -337,24 +337,30 @@ class DataTrackerState extends State<MyHomePage> {
 
   Future<void> loadSettings() async {
     var box = await Hive.openBox('settings');
-    selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
+    setState(() {
+      print("Box keys: ${box.keys}");
+      print("Box: $box");
+      selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
 
-    // chart zoom
-    _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
-    _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
-    _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
-    _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
+      // chart zoom
+      _xMin = getSettingValue(hiveKeyxMin, box, _xMin);
+      _xMax = getSettingValue(hiveKeyxMax, box, _xMin);
+      _yMin = getSettingValue(hiveKeyyMin, box, _yMin);
+      _yMax = getSettingValue(hiveKeyyMax, box, _yMin);
 
-    _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
-    _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
+      _lastShare = getSettingValue(hiveKeyLastShare, box, _lastShare);
+      _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
 
-    _askForLogin = getSettingValue(hiveKeyAskForLogin, box, true);
+      _askForLogin = getSettingValue(hiveKeyAskForLogin, box, true);
+      print("Ask for Login loaded: $_askForLogin");
 
-    _settingsLoaded = true;
+      _settingsLoaded = true;
+    });
   }
 
   Future<void> saveSettings(String key, dynamic value) async {
     var box = await Hive.openBox('settings');
+    print("saving to box: $key: $value");
     box.put(key, value);
   }
 
@@ -472,7 +478,7 @@ class DataTrackerState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     var activeWidget =
         dataLoaded ? getChart() : const CircularProgressIndicator();
-    _dismissSignInDialog();
+    print("Before: $_askForLogin, $_loggedInUser");
     if (_askForLogin && _loggedInUser == null) {
       _showSignInDialog();
     }
