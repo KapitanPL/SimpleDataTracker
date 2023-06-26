@@ -29,7 +29,7 @@ Future<User?> signInDialog(BuildContext context) async {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Sign In: $dialogCount'),
+          title: const Text('Sign In'),
           content: SizedBox(
               height: 50,
               child: SignInButton(
