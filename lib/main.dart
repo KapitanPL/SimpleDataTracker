@@ -237,7 +237,7 @@ class DataTrackerState extends State<MyHomePage> {
   }
 
   void _dismissSignInDialog() {
-    print("Try to dismiss old dialog");
+    print("Try to dismiss old dialog: ${signInDialogContext.length}");
     if (signInDialogContext.isNotEmpty) {
       print("Dismiss the old dialog");
       Navigator.pop(signInDialogContext.first);
@@ -479,7 +479,7 @@ class DataTrackerState extends State<MyHomePage> {
     var activeWidget =
         dataLoaded ? getChart() : const CircularProgressIndicator();
     print("Before: $_askForLogin, $_loggedInUser");
-    if (_askForLogin && _loggedInUser == null) {
+    if (_settingsLoaded && _askForLogin && _loggedInUser == null) {
       _showSignInDialog();
     }
     return _settingsLoaded
