@@ -23,10 +23,17 @@ class Authentication {
 
     try {
       await googleSignIn.disconnect().timeout(const Duration(seconds: 10));
-    } on PlatformException catch (e) {}
+    } on PlatformException catch (e) {
+      onError(e.toString());
+    }
 
-    final GoogleSignInAccount? googleSignInAccount =
-        await googleSignIn.signIn().timeout(const Duration(seconds: 10));
+    final GoogleSignInAccount? googleSignInAccount = await googleSignIn
+        .signIn()
+        .timeout(const Duration(seconds: 10))
+        .onError((error, stackTrace) {
+      onError(error.toString());
+      return null;
+    });
 
     if (googleSignInAccount != null) {
       final GoogleSignInAuthentication googleSignInAuthentication =

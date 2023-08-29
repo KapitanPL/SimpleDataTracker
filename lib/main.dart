@@ -232,14 +232,11 @@ class DataTrackerState extends State<MyHomePage> {
     if (!mounted) return;
     _dismissSignInDialog();
     signInDialogContext.add(context);
-    print("Context assigned");
     signInDialog(context).then((value) => _processLogin(value));
   }
 
   void _dismissSignInDialog() {
-    print("Try to dismiss old dialog: ${signInDialogContext.length}");
     if (signInDialogContext.isNotEmpty) {
-      print("Dismiss the old dialog");
       Navigator.pop(signInDialogContext.first);
       signInDialogContext.removeAt(0);
     }
@@ -279,6 +276,7 @@ class DataTrackerState extends State<MyHomePage> {
 
   void _processLogin(User? newUser) {
     if (_loggedInUser == null && newUser == null) {
+      print("ask for login: false");
       _askForLogin = false;
       saveSettings(hiveKeyAskForLogin, _askForLogin);
     }
@@ -338,8 +336,6 @@ class DataTrackerState extends State<MyHomePage> {
   Future<void> loadSettings() async {
     var box = await Hive.openBox('settings');
     setState(() {
-      print("Box keys: ${box.keys}");
-      print("Box: $box");
       selectedKeys = getSettingValue(hiveKeyselectedItem, box, <String>[]);
 
       // chart zoom
@@ -352,7 +348,6 @@ class DataTrackerState extends State<MyHomePage> {
       _rightHanded = getSettingValue(hiveKeyControlsSide, box, _rightHanded);
 
       _askForLogin = getSettingValue(hiveKeyAskForLogin, box, true);
-      print("Ask for Login loaded: $_askForLogin");
 
       _settingsLoaded = true;
     });
@@ -360,7 +355,6 @@ class DataTrackerState extends State<MyHomePage> {
 
   Future<void> saveSettings(String key, dynamic value) async {
     var box = await Hive.openBox('settings');
-    print("saving to box: $key: $value");
     box.put(key, value);
   }
 
@@ -478,7 +472,6 @@ class DataTrackerState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     var activeWidget =
         dataLoaded ? getChart() : const CircularProgressIndicator();
-    print("Before: $_askForLogin, $_loggedInUser");
     if (_settingsLoaded && _askForLogin && _loggedInUser == null) {
       _showSignInDialog();
     }

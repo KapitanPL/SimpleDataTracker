@@ -39,6 +39,9 @@ Future<User?> signInDialog(BuildContext context) async {
                           (errorString) => showError(context, errorString))
                       .then((value) {
                     Navigator.of(context, rootNavigator: true).pop(value);
+                  }).onError((error, stackTrace) {
+                    Navigator.of(context, rootNavigator: true).pop();
+                    return null;
                   });
                 },
               )),
